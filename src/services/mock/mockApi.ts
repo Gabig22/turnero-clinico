@@ -283,17 +283,45 @@ export const mockApi = {
       throw new Error('No se encontró el turno.')
     }
 
+    const shouldCreateCallEvent = estado === 'en_atencion' && turno.estado !== 'en_atencion'
     const updatedTurno: Turno = {
       ...turno,
       estado,
       started_at: estado === 'en_atencion' ? turno.started_at ?? now : turno.started_at,
-      completed_at: estado === 'finalizado' ? now : turno.completed_at,
+      completed_at: estado === 'finalizado' ? now : estado === 'en_atencion' ? null : turno.completed_at,
+      llamado_count: shouldCreateCallEvent ? (turno.llamado_count ?? 0) + 1 : turno.llamado_count,
       updated_at: now,
     }
+    const nextEvents = shouldCreateCallEvent
+      ? [...database.turnero_events, buildTurneroEvent(updatedTurno, 'CALL')]
+      : database.turnero_events
 
     writeMockStorage({
       ...database,
-      turnos: database.turnos.map((item) => (item.id === id ? updatedTurno : item)),
+      turnos: database.turnos.map((item) => {
+        if (item.id === id) {
+          return updatedTurno
+        }
+
+        // Regla demo: al llamar manualmente a un paciente, cerramos cualquier otro
+        // turno en atención del mismo médico y fecha para evitar llamados simultáneos.
+        if (
+          shouldCreateCallEvent &&
+          item.medico_id === turno.medico_id &&
+          item.fecha === turno.fecha &&
+          item.estado === 'en_atencion'
+        ) {
+          return {
+            ...item,
+            estado: 'finalizado',
+            completed_at: now,
+            updated_at: now,
+          }
+        }
+
+        return item
+      }),
+      turnero_events: nextEvents,
     })
 
     return enrichTurnos([updatedTurno])[0]
@@ -306,21 +334,22 @@ export const mockApi = {
     const turnosDelMedicoHoy = sortTurnosByDateAndTime(
       database.turnos.filter((turno) => turno.medico_id === medicoId && turno.fecha === today),
     )
-    const turnoActual = turnosDelMedicoHoy.find((turno) => turno.estado === 'en_atencion')
+    const turnosActuales = turnosDelMedicoHoy.filter((turno) => turno.estado === 'en_atencion')
     const siguiente = turnosDelMedicoHoy.find((turno) => turno.estado === 'pendiente')
     let turnoFinalizado: Turno | null = null
     let turnoLlamado: Turno | null = null
 
     const updatedTurnos = database.turnos.map((turno) => {
-      if (turnoActual && turno.id === turnoActual.id) {
-        turnoFinalizado = {
+      if (turno.medico_id === medicoId && turno.fecha === today && turno.estado === 'en_atencion') {
+        const finalizado: Turno = {
           ...turno,
           estado: 'finalizado',
           completed_at: now,
           updated_at: now,
         }
 
-        return turnoFinalizado
+        turnoFinalizado = turnoFinalizado ?? finalizado
+        return finalizado
       }
 
       if (siguiente && turno.id === siguiente.id) {
@@ -351,6 +380,7 @@ export const mockApi = {
     return {
       turnoFinalizado: turnoFinalizado ? enrichTurnos([turnoFinalizado])[0] : null,
       turnoLlamado: turnoLlamado ? enrichTurnos([turnoLlamado])[0] : null,
+      turnosFinalizados: turnosActuales.length,
     }
   },
 

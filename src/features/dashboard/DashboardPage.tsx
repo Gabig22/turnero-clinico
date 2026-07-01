@@ -1,9 +1,11 @@
 import {
   CalendarPlus,
+  CheckCircle2,
   ClipboardList,
   Play,
   RotateCcw,
   Stethoscope,
+  Repeat2,
   UserRoundCheck,
   UsersRound,
 } from 'lucide-react'
@@ -16,7 +18,7 @@ import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useDashboard, useResetDemoData } from '@/hooks/useDashboard'
-import { useSiguienteTurno } from '@/hooks/useTurnos'
+import { useCambiarEstadoTurno, useRellamarTurno, useSiguienteTurno } from '@/hooks/useTurnos'
 import type { Medico, TurnoDetallado, TurnoEstado } from '@/types'
 
 const statusLabels: Record<TurnoEstado, string> = {
@@ -30,6 +32,8 @@ const statusLabels: Record<TurnoEstado, string> = {
 export function DashboardPage() {
   const dashboardQuery = useDashboard()
   const siguienteTurno = useSiguienteTurno()
+  const cambiarEstado = useCambiarEstadoTurno()
+  const rellamarTurno = useRellamarTurno()
   const resetDemoData = useResetDemoData()
   const dashboard = dashboardQuery.data
 
@@ -84,9 +88,14 @@ export function DashboardPage() {
             {dashboard.medicos.map(({ medico, turnos }) => (
               <DoctorCard
                 isCalling={siguienteTurno.isPending}
+                isMutating={cambiarEstado.isPending || rellamarTurno.isPending}
                 key={medico.id}
                 medico={medico}
                 onCallNext={() => siguienteTurno.mutate(medico.id)}
+                onFinishCurrent={(turnoId) =>
+                  cambiarEstado.mutate({ id: turnoId, estado: 'finalizado' })
+                }
+                onRecallCurrent={(turnoId) => rellamarTurno.mutate(turnoId)}
                 turnos={turnos}
               />
             ))}
@@ -128,16 +137,28 @@ type DoctorCardProps = {
   medico: Medico
   turnos: TurnoDetallado[]
   isCalling: boolean
+  isMutating: boolean
   onCallNext: () => void
+  onRecallCurrent: (turnoId: string) => void
+  onFinishCurrent: (turnoId: string) => void
 }
 
-function DoctorCard({ medico, turnos, isCalling, onCallNext }: DoctorCardProps) {
+function DoctorCard({
+  medico,
+  turnos,
+  isCalling,
+  isMutating,
+  onCallNext,
+  onRecallCurrent,
+  onFinishCurrent,
+}: DoctorCardProps) {
   const counters = {
     pendiente: turnos.filter((turno) => turno.estado === 'pendiente').length,
     en_atencion: turnos.filter((turno) => turno.estado === 'en_atencion').length,
     finalizado: turnos.filter((turno) => turno.estado === 'finalizado').length,
   }
   const hasPending = counters.pendiente > 0
+  const currentTurno = turnos.find((turno) => turno.estado === 'en_atencion')
 
   return (
     <Card>
@@ -190,10 +211,33 @@ function DoctorCard({ medico, turnos, isCalling, onCallNext }: DoctorCardProps) 
           ) : null}
         </div>
 
-        <Button disabled={isCalling || !hasPending} onClick={onCallNext} variant="outline">
-          <Play aria-hidden="true" className="h-4 w-4" />
-          Llamar siguiente
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button disabled={isCalling || !hasPending} onClick={onCallNext} variant="outline">
+            <Play aria-hidden="true" className="h-4 w-4" />
+            Llamar siguiente
+          </Button>
+
+          {currentTurno ? (
+            <>
+              <Button
+                disabled={isMutating}
+                onClick={() => onRecallCurrent(currentTurno.id)}
+                variant="outline"
+              >
+                <Repeat2 aria-hidden="true" className="h-4 w-4" />
+                Rellamar actual
+              </Button>
+              <Button
+                disabled={isMutating}
+                onClick={() => onFinishCurrent(currentTurno.id)}
+                variant="secondary"
+              >
+                <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
+                Finalizar actual
+              </Button>
+            </>
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   )

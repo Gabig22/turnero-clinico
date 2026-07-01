@@ -149,7 +149,7 @@ export function TurneroPage() {
                   <div className="rounded-md border border-border bg-muted/30 p-3" key={event.id}>
                     <div className="flex items-center justify-between gap-3">
                       <span className="text-xs font-semibold uppercase tracking-wide text-primary">
-                        {event.accion === 'CALL' ? 'Llamado' : 'Rellamado'}
+                        {event.accion === 'CALL' ? 'LLAMADO' : 'RELLAMADO'}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {new Date(event.created_at).toLocaleTimeString('es-AR', {

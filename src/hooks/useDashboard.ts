@@ -39,7 +39,7 @@ export function useResetDemoData() {
   return useMutation({
     mutationFn: mockApi.resetDemoData,
     onSuccess: () => {
-      toast.success('Datos demo reiniciados correctamente.')
+      toast.success('Demo reiniciada correctamente.')
       void queryClient.invalidateQueries()
     },
     onError: () => {

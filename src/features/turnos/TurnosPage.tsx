@@ -1,4 +1,4 @@
-import { CalendarClock, Plus, Search } from 'lucide-react'
+import { CalendarClock, CheckCircle2, PhoneCall, Plus, Repeat2, Search } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 
@@ -9,7 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useMedicos } from '@/hooks/useMedicos'
 import { usePacientes } from '@/hooks/usePacientes'
-import { useCambiarEstadoTurno, useCrearTurno, useTurnos } from '@/hooks/useTurnos'
+import {
+  useCambiarEstadoTurno,
+  useCrearTurno,
+  useRellamarTurno,
+  useTurnos,
+} from '@/hooks/useTurnos'
 import { turnoSchema, type TurnoFormValues } from '@/lib/validators/schemas'
 import type { Medico, Paciente, TurnoEstado } from '@/types'
 
@@ -45,6 +50,7 @@ export function TurnosPage() {
   const medicosQuery = useMedicos()
   const crearTurno = useCrearTurno()
   const cambiarEstado = useCambiarEstadoTurno()
+  const rellamarTurno = useRellamarTurno()
 
   return (
     <div className="space-y-6">
@@ -135,7 +141,46 @@ export function TurnosPage() {
                         <StatusBadge estado={turno.estado} />
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex justify-end">
+                        <div className="flex flex-wrap justify-end gap-2">
+                          {turno.estado === 'pendiente' ? (
+                            <Button
+                              disabled={cambiarEstado.isPending}
+                              onClick={() =>
+                                cambiarEstado.mutate({ id: turno.id, estado: 'en_atencion' })
+                              }
+                              size="sm"
+                              variant="outline"
+                            >
+                              <PhoneCall aria-hidden="true" className="h-4 w-4" />
+                              Llamar
+                            </Button>
+                          ) : null}
+
+                          {turno.estado === 'en_atencion' ? (
+                            <>
+                              <Button
+                                disabled={rellamarTurno.isPending}
+                                onClick={() => rellamarTurno.mutate(turno.id)}
+                                size="sm"
+                                variant="outline"
+                              >
+                                <Repeat2 aria-hidden="true" className="h-4 w-4" />
+                                Rellamar
+                              </Button>
+                              <Button
+                                disabled={cambiarEstado.isPending}
+                                onClick={() =>
+                                  cambiarEstado.mutate({ id: turno.id, estado: 'finalizado' })
+                                }
+                                size="sm"
+                                variant="secondary"
+                              >
+                                <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
+                                Finalizar
+                              </Button>
+                            </>
+                          ) : null}
+
                           <select
                             className="h-9 rounded-md border border-input bg-card px-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                             onChange={(event) =>

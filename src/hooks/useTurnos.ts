@@ -40,8 +40,15 @@ export function useCambiarEstadoTurno() {
   return useMutation({
     mutationFn: ({ id, estado }: { id: string; estado: TurnoEstado }) =>
       mockApi.cambiarEstadoTurno(id, estado),
-    onSuccess: () => {
-      toast.success('Estado del turno actualizado.')
+    onSuccess: (turno) => {
+      if (turno.estado === 'en_atencion') {
+        toast.success('Paciente llamado correctamente.')
+      } else if (turno.estado === 'finalizado') {
+        toast.success('Turno finalizado.')
+      } else {
+        toast.success('Estado del turno actualizado.')
+      }
+
       invalidateClinicalQueries(queryClient)
     },
     onError: (error) => {
@@ -55,13 +62,9 @@ export function useSiguienteTurno() {
 
   return useMutation({
     mutationFn: (medicoId: string) => mockApi.siguienteTurno(medicoId),
-    onSuccess: ({ turnoFinalizado, turnoLlamado }) => {
-      if (turnoLlamado?.paciente) {
-        toast.success(
-          `Llamado: ${turnoLlamado.paciente.apellido}, ${turnoLlamado.paciente.nombre}.`,
-        )
-      } else if (turnoFinalizado) {
-        toast.info('Turno finalizado. No quedan turnos pendientes para este médico.')
+    onSuccess: ({ turnoLlamado }) => {
+      if (turnoLlamado) {
+        toast.success('Paciente llamado correctamente.')
       } else {
         toast.info('No hay turnos pendientes para este médico.')
       }
@@ -70,6 +73,21 @@ export function useSiguienteTurno() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'No se pudo llamar al siguiente turno.')
+    },
+  })
+}
+
+export function useRellamarTurno() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (turnoId: string) => mockApi.rellamarTurno(turnoId),
+    onSuccess: () => {
+      toast.success('Paciente rellamado.')
+      invalidateClinicalQueries(queryClient)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'No se pudo rellamar al paciente.')
     },
   })
 }
