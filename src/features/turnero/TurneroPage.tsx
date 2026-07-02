@@ -6,17 +6,26 @@ import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useTurneroSettings } from '@/hooks/useSettings'
 import { useTurnero } from '@/hooks/useTurnero'
 import { formatFechaLarga } from '@/lib/dates/formatters'
+import { cn } from '@/lib/utils/cn'
 
 export function TurneroPage() {
   const turneroQuery = useTurnero()
+  const turneroSettingsQuery = useTurneroSettings()
   const turnosHoy = turneroQuery.data?.turnosHoy ?? []
   const enAtencion = turneroQuery.data?.enAtencion ?? []
   const eventos = turneroQuery.data?.eventos.slice(0, 6) ?? []
+  const highContrastEnabled = turneroSettingsQuery.data?.highContrastEnabled ?? false
 
   return (
-    <div className="min-h-screen px-4 py-5 md:px-8">
+    <div
+      className={cn(
+        'min-h-screen bg-background px-4 py-5 md:px-8',
+        highContrastEnabled && 'turnero-high-contrast',
+      )}
+    >
       <div className="mx-auto flex max-w-7xl flex-col gap-6">
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="flex flex-wrap gap-2">

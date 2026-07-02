@@ -3,11 +3,10 @@ import {
   CheckCircle2,
   ClipboardList,
   Play,
+  Repeat2,
   RotateCcw,
   Stethoscope,
-  Repeat2,
   UserRoundCheck,
-  UsersRound,
 } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
@@ -60,17 +59,32 @@ export function DashboardPage() {
         title="Panel de Control"
       />
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <MetricCard icon={Stethoscope} label="Médicos activos" value={dashboard?.medicosActivos ?? 0} />
         <MetricCard
-          icon={UsersRound}
-          label="Pacientes hoy"
-          value={dashboard?.pacientesConTurnoHoy ?? 0}
+          icon={ClipboardList}
+          label="Turnos del día"
+          subtitle={`${dashboard?.pacientesConTurnoHoy ?? 0} pacientes únicos`}
+          value={dashboard?.turnosDelDia ?? 0}
         />
-        <MetricCard icon={ClipboardList} label="Turnos del día" value={dashboard?.turnosDelDia ?? 0} />
-        <MetricCard icon={ClipboardList} label="Pendientes" value={dashboard?.pendientes ?? 0} />
-        <MetricCard icon={UserRoundCheck} label="En atención" value={dashboard?.enAtencion ?? 0} />
-        <MetricCard icon={UserRoundCheck} label="Finalizados" value={dashboard?.finalizados ?? 0} />
+        <MetricCard
+          icon={ClipboardList}
+          label="Pendientes"
+          value={dashboard?.pendientes ?? 0}
+          variant="pending"
+        />
+        <MetricCard
+          icon={UserRoundCheck}
+          label="En atención"
+          value={dashboard?.enAtencion ?? 0}
+          variant="active"
+        />
+        <MetricCard
+          icon={CheckCircle2}
+          label="Finalizados"
+          value={dashboard?.finalizados ?? 0}
+          variant="completed"
+        />
       </section>
 
       <section className="space-y-4">
@@ -115,17 +129,47 @@ type MetricCardProps = {
   label: string
   value: number
   icon: typeof Stethoscope
+  subtitle?: string
+  variant?: 'neutral' | 'pending' | 'active' | 'completed'
 }
 
-function MetricCard({ label, value, icon: Icon }: MetricCardProps) {
+const metricVariantClasses: Record<
+  NonNullable<MetricCardProps['variant']>,
+  {
+    card: string
+    icon: string
+  }
+> = {
+  neutral: {
+    card: 'border-t-4 border-t-primary/20',
+    icon: 'bg-primary-soft text-primary',
+  },
+  pending: {
+    card: 'border-t-4 border-t-warning bg-warning-soft/35',
+    icon: 'bg-warning-soft text-warning',
+  },
+  active: {
+    card: 'border-t-4 border-t-info bg-info-soft/35',
+    icon: 'bg-info-soft text-info',
+  },
+  completed: {
+    card: 'border-t-4 border-t-success bg-success-soft/35',
+    icon: 'bg-success-soft text-success',
+  },
+}
+
+function MetricCard({ label, value, icon: Icon, subtitle, variant = 'neutral' }: MetricCardProps) {
+  const classes = metricVariantClasses[variant]
+
   return (
-    <Card>
+    <Card className={classes.card}>
       <CardContent className="flex items-center justify-between gap-4 p-5">
         <div>
           <p className="text-sm font-medium text-muted-foreground">{label}</p>
           <p className="mt-2 text-3xl font-semibold text-foreground">{value}</p>
+          {subtitle ? <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p> : null}
         </div>
-        <div className="rounded-lg bg-primary-soft p-3 text-primary">
+        <div className={`rounded-lg p-3 ${classes.icon}`}>
           <Icon aria-hidden="true" className="h-5 w-5" />
         </div>
       </CardContent>
@@ -188,11 +232,11 @@ function DoctorCard({
         <div className="space-y-2">
           {turnos.slice(0, 5).map((turno) => (
             <div
-              className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+              className="flex items-start justify-between gap-3 rounded-md border border-border px-3 py-2"
               key={turno.id}
             >
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">
+                <p className="truncate text-sm font-medium text-foreground">
                   {turno.hora} ·{' '}
                   {turno.paciente
                     ? `${turno.paciente.apellido}, ${turno.paciente.nombre}`
@@ -200,7 +244,9 @@ function DoctorCard({
                 </p>
                 <p className="truncate text-xs text-muted-foreground">{turno.obra_social}</p>
               </div>
-              <StatusBadge estado={turno.estado} />
+              <div className="shrink-0">
+                <StatusBadge estado={turno.estado} />
+              </div>
             </div>
           ))}
 
@@ -212,7 +258,7 @@ function DoctorCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <Button disabled={isCalling || !hasPending} onClick={onCallNext} variant="outline">
+          <Button disabled={isCalling || !hasPending} onClick={onCallNext} size="sm" variant="outline">
             <Play aria-hidden="true" className="h-4 w-4" />
             Llamar siguiente
           </Button>
@@ -222,6 +268,7 @@ function DoctorCard({
               <Button
                 disabled={isMutating}
                 onClick={() => onRecallCurrent(currentTurno.id)}
+                size="sm"
                 variant="outline"
               >
                 <Repeat2 aria-hidden="true" className="h-4 w-4" />
@@ -230,6 +277,7 @@ function DoctorCard({
               <Button
                 disabled={isMutating}
                 onClick={() => onFinishCurrent(currentTurno.id)}
+                size="sm"
                 variant="secondary"
               >
                 <CheckCircle2 aria-hidden="true" className="h-4 w-4" />

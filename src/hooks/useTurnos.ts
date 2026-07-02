@@ -34,6 +34,22 @@ export function useCrearTurno() {
   })
 }
 
+export function useActualizarTurno() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<TurnoInput> }) =>
+      mockApi.updateTurno(id, input),
+    onSuccess: () => {
+      toast.success('Turno actualizado correctamente.')
+      invalidateClinicalQueries(queryClient)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'No se pudo actualizar el turno.')
+    },
+  })
+}
+
 export function useCambiarEstadoTurno() {
   const queryClient = useQueryClient()
 
@@ -53,6 +69,21 @@ export function useCambiarEstadoTurno() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'No se pudo actualizar el turno.')
+    },
+  })
+}
+
+export function useCancelarTurno() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => mockApi.cancelarTurno(id),
+    onSuccess: () => {
+      toast.success('Turno cancelado.')
+      invalidateClinicalQueries(queryClient)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'No se pudo cancelar el turno.')
     },
   })
 }

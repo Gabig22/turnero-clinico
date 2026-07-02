@@ -69,6 +69,18 @@ export type TurnoDetallado = Turno & {
   paciente?: Paciente
 }
 
+export type AppSettings = {
+  horarioInicio: string
+  horarioFin: string
+  slotDuracion: 15 | 20 | 30 | 40
+  obrasSociales: string[]
+}
+
+export type TurneroSettings = {
+  dingEnabled: boolean
+  highContrastEnabled: boolean
+}
+
 export type MockDatabase = {
   medicos: Medico[]
   pacientes: Paciente[]

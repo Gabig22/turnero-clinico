@@ -11,10 +11,11 @@ const roleLabels = {
 
 export function DemoBadge() {
   const { role } = useDemoRole()
+  const appModeLabel = APP_MODE === 'mock' ? 'demo' : APP_MODE
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Badge variant="info">Modo {APP_MODE}</Badge>
+      <Badge variant="info">Modo {appModeLabel}</Badge>
       <Badge variant="muted">Rol: {roleLabels[role]}</Badge>
     </div>
   )

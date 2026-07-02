@@ -11,6 +11,10 @@ export const queryKeys = {
     all: ['turnos'] as const,
     list: (filters: unknown) => ['turnos', filters] as const,
   },
+  settings: {
+    app: ['settings', 'app'] as const,
+    turnero: ['settings', 'turnero'] as const,
+  },
   dashboard: ['dashboard'] as const,
   turnero: ['turnero'] as const,
   turneroEvents: ['turnero-events'] as const,

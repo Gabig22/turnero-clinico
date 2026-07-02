@@ -1,12 +1,20 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 
 import { queryKeys } from '@/hooks/queryKeys'
-import { mockApi } from '@/services/mock'
+import { mockApi, type MedicoFilters, type MedicoInput } from '@/services/mock/mockApi'
 
-export function useMedicos() {
+function invalidateMedicoQueries(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: queryKeys.medicos.all })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.turnos.all })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.dashboard })
+  void queryClient.invalidateQueries({ queryKey: queryKeys.turnero })
+}
+
+export function useMedicos(filters: MedicoFilters = {}) {
   return useQuery({
-    queryKey: queryKeys.medicos.all,
-    queryFn: mockApi.listMedicos,
+    queryKey: [...queryKeys.medicos.all, filters],
+    queryFn: () => mockApi.listMedicos(filters),
   })
 }
 
@@ -15,5 +23,51 @@ export function useMedico(id: string) {
     enabled: Boolean(id),
     queryKey: queryKeys.medicos.detail(id),
     queryFn: () => mockApi.getMedicoById(id),
+  })
+}
+
+export function useCrearMedico() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (input: MedicoInput) => mockApi.createMedico(input),
+    onSuccess: () => {
+      toast.success('Médico creado correctamente.')
+      invalidateMedicoQueries(queryClient)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'No se pudo crear el médico.')
+    },
+  })
+}
+
+export function useActualizarMedico() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: Partial<MedicoInput> }) =>
+      mockApi.updateMedico(id, input),
+    onSuccess: () => {
+      toast.success('Médico actualizado correctamente.')
+      invalidateMedicoQueries(queryClient)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'No se pudo actualizar el médico.')
+    },
+  })
+}
+
+export function useToggleMedico() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => mockApi.toggleMedico(id),
+    onSuccess: (medico) => {
+      toast.success(medico.activo ? 'Médico activado.' : 'Médico desactivado.')
+      invalidateMedicoQueries(queryClient)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'No se pudo cambiar el estado del médico.')
+    },
   })
 }

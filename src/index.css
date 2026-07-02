@@ -80,3 +80,26 @@ a {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgb(15 118 110 / 0.15);
 }
+
+.turnero-high-contrast {
+  --color-background: #020617;
+  --color-foreground: #f8fafc;
+  --color-card: #0f172a;
+  --color-card-foreground: #f8fafc;
+  --color-muted: #1e293b;
+  --color-muted-foreground: #cbd5e1;
+  --color-border: #64748b;
+  --color-input: #94a3b8;
+  --color-primary: #67e8f9;
+  --color-primary-foreground: #082f49;
+  --color-primary-soft: #164e63;
+  --color-accent: #1e3a5f;
+  --color-accent-foreground: #e0f2fe;
+  --color-warning: #facc15;
+  --color-warning-soft: #422006;
+  --color-success: #86efac;
+  --color-success-soft: #14532d;
+  --color-info: #93c5fd;
+  --color-info-soft: #1e3a8a;
+  --shadow-clinical: none;
+}
