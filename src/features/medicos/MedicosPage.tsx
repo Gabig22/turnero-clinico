@@ -17,6 +17,8 @@ import {
 } from '@/hooks/useMedicos'
 import { useAppSettings } from '@/hooks/useSettings'
 import { DEFAULT_APP_SETTINGS } from '@/lib/storage/settingsStorage'
+import { formatConsultorioCompact } from '@/lib/utils/consultorio'
+import { cn } from '@/lib/utils/cn'
 import { medicoSchema, type MedicoFormValues } from '@/lib/validators/schemas'
 import type { Medico } from '@/types'
 
@@ -139,68 +141,88 @@ export function MedicosPage() {
             <EmptyState icon={Stethoscope} title="Cargando médicos" />
           ) : medicosQuery.data?.length ? (
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[980px] border-collapse bg-card text-sm">
+              <table className="w-full min-w-[920px] border-collapse bg-card text-sm">
                 <thead className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="w-[26%] px-4 py-3 font-semibold">Médico</th>
-                    <th className="whitespace-nowrap px-4 py-3 font-semibold">Consultorio</th>
+                    <th className="w-[28%] px-4 py-3 font-semibold">Médico</th>
+                    <th className="w-[9%] whitespace-nowrap px-4 py-3 text-center font-semibold">Consultorio</th>
                     <th className="w-[17%] px-4 py-3 font-semibold">Días</th>
                     <th className="w-[20%] px-4 py-3 font-semibold">Obras sociales</th>
-                    <th className="w-[20%] px-4 py-3 font-semibold">Contacto</th>
+                    <th className="w-[18%] px-4 py-3 font-semibold">Contacto</th>
                     <th className="whitespace-nowrap px-4 py-3 font-semibold">Estado</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">Acciones</th>
+                    <th className="w-[120px] whitespace-nowrap px-2 py-3 text-center font-semibold">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border align-middle">
                   {medicosQuery.data.map((medico) => (
                     <tr className="hover:bg-accent/50" key={medico.id}>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2.5">
                         <p className="max-w-[260px] whitespace-normal text-sm font-semibold leading-5 text-foreground">
                           {medico.nombre}
                         </p>
-                        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                          {medico.especialidad}
-                          {medico.matricula ? ` · ${medico.matricula}` : ''}
+                        <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs leading-5 text-muted-foreground">
+                          <span className="inline-flex rounded-full border border-info/10 bg-info-soft/60 px-2 py-0.5 font-semibold text-info">
+                            {medico.especialidad}
+                          </span>
+                          {medico.matricula ? <span>{medico.matricula}</span> : null}
                         </p>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3 text-sm text-muted-foreground">
-                        Consultorio {medico.consultorio}
+                      <td className="whitespace-nowrap px-4 py-2.5 text-center">
+                        <span className="inline-flex rounded-full border border-primary/15 bg-primary-soft/60 px-2.5 py-1 text-xs font-bold text-primary">
+                          {formatConsultorioCompact(medico.consultorio)}
+                        </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2.5">
                         <ChipList items={medico.dias_disponibles?.length ? medico.dias_disponibles : ['L', 'Ma', 'Mi', 'J', 'V', 'S']} />
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2.5">
                         <ChipList items={medico.obras_sociales ?? []} maxVisible={3} />
                       </td>
-                      <td className="px-4 py-3 text-xs leading-5 text-muted-foreground">
+                      <td className="px-4 py-2.5 text-xs leading-5 text-muted-foreground">
                         <p>{medico.telefono || '-'}</p>
                         <p className="max-w-[220px] truncate">{medico.email || '-'}</p>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3">
+                      <td className="whitespace-nowrap px-4 py-2.5">
                         <Badge variant={medico.activo ? 'success' : 'muted'}>
                           {medico.activo ? 'Activo' : 'Inactivo'}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap justify-end gap-2">
+                      <td className="px-2 py-2.5">
+                        <div className="flex justify-center gap-1">
                           <Link
-                            className={buttonVariants({ variant: 'outline', size: 'sm' })}
+                            aria-label={`Ver agenda de ${medico.nombre}`}
+                            className={cn(
+                              buttonVariants({ variant: 'outline', size: 'sm' }),
+                              'h-8 w-8 p-0 hover:border-primary/30',
+                            )}
+                            title="Ver agenda"
                             to={`/agenda/${medico.id}`}
                           >
                             <CalendarDays aria-hidden="true" className="h-4 w-4" />
-                            Agenda
                           </Link>
-                          <Button onClick={() => openEditForm(medico)} size="sm" variant="outline">
+                          <Button
+                            aria-label={`Editar médico ${medico.nombre}`}
+                            className="h-8 w-8 p-0 hover:border-primary/30"
+                            onClick={() => openEditForm(medico)}
+                            size="sm"
+                            title="Editar médico"
+                            variant="outline"
+                          >
                             <Pencil aria-hidden="true" className="h-4 w-4" />
-                            Editar
                           </Button>
-                          <Button onClick={() => toggleMedicoStatus(medico)} size="sm" variant="ghost">
+                          <Button
+                            aria-label={`${medico.activo ? 'Desactivar médico' : 'Activar médico'} ${medico.nombre}`}
+                            className="h-8 w-8 p-0"
+                            onClick={() => toggleMedicoStatus(medico)}
+                            size="sm"
+                            title={medico.activo ? 'Desactivar médico' : 'Activar médico'}
+                            variant="outline"
+                          >
                             {medico.activo ? (
                               <UserRoundX aria-hidden="true" className="h-4 w-4" />
                             ) : (
                               <UserRoundCheck aria-hidden="true" className="h-4 w-4" />
                             )}
-                            {medico.activo ? 'Desactivar' : 'Activar'}
                           </Button>
                         </div>
                       </td>

@@ -1,6 +1,7 @@
 import {
   CalendarClock,
   CheckCircle2,
+  MoreVertical,
   Pencil,
   PhoneCall,
   Plus,
@@ -32,6 +33,7 @@ import { formatDateDisplay } from '@/lib/dates/displayDate'
 import { generateTimeOptions } from '@/lib/dates/timeSlots'
 import { DEFAULT_APP_SETTINGS } from '@/lib/storage/settingsStorage'
 import { isTurnoVencidoPendienteDeCierre, turnoEstadoOptions } from '@/lib/turnos/status'
+import { formatConsultorioCompact } from '@/lib/utils/consultorio'
 import { turnoSchema, type TurnoFormValues } from '@/lib/validators/schemas'
 import type { Medico, Paciente, TurnoDetallado, TurnoEstado } from '@/types'
 
@@ -139,7 +141,7 @@ export function TurnosPage() {
 
       <Card>
         <CardContent className="space-y-4 p-4 md:p-5">
-          <div className="grid gap-3 xl:grid-cols-[1.4fr_170px_170px_220px_190px_160px]">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.6fr)_160px_160px_minmax(190px,1fr)_minmax(180px,1fr)_130px]">
             <label className="relative block">
               <span className="sr-only">Buscar turnos</span>
               <Search
@@ -149,7 +151,7 @@ export function TurnosPage() {
               <input
                 className="h-10 w-full rounded-md border border-input bg-card pl-9 pr-3 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Buscar por paciente, DNI o médico"
+                placeholder="Buscar paciente, DNI o médico"
                 value={search}
               />
             </label>
@@ -208,7 +210,7 @@ export function TurnosPage() {
               <option value="">Consultorios</option>
               {consultorios.map((item) => (
                 <option key={item} value={item}>
-                  Consultorio {item}
+                  {formatConsultorioCompact(item)}
                 </option>
               ))}
             </select>
@@ -227,30 +229,30 @@ export function TurnosPage() {
             <EmptyState title="Cargando turnos" />
           ) : turnosQuery.data?.length ? (
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[1060px] border-collapse bg-card text-sm">
+              <table className="w-full min-w-[1040px] border-collapse bg-card text-sm">
                 <thead className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="w-[15%] px-4 py-3 font-semibold">Fecha y hora</th>
+                    <th className="w-[11%] px-4 py-3 font-semibold">Fecha</th>
+                    <th className="w-[8%] px-4 py-3 text-center font-semibold">Hora</th>
                     <th className="w-[24%] px-4 py-3 font-semibold">Paciente</th>
-                    <th className="w-[23%] px-4 py-3 font-semibold">Médico</th>
+                    <th className="w-[22%] px-4 py-3 font-semibold">Médico</th>
                     <th className="px-4 py-3 font-semibold">Obra social</th>
                     <th className="whitespace-nowrap px-4 py-3 font-semibold">Estado</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">Acciones</th>
+                    <th className="w-[192px] whitespace-nowrap px-2 py-3 text-center font-semibold">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border align-middle">
                   {turnosQuery.data.map((turno) => (
                     <tr className="hover:bg-accent/50" key={turno.id}>
-                      <td className="whitespace-nowrap px-4 py-3">
-                        <p className="font-semibold text-foreground">{turno.hora}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
+                      <td className="whitespace-nowrap px-4 py-2.5">
+                        <p className="font-semibold text-foreground">
                           {formatDateDisplay(turno.fecha)}
                         </p>
-                        <div className="mt-1">
-                          <DateBadge fecha={turno.fecha} />
-                        </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="whitespace-nowrap px-4 py-2.5 text-center">
+                        <p className="text-sm font-bold text-foreground">{turno.hora}</p>
+                      </td>
+                      <td className="px-4 py-2.5">
                         <p className="max-w-[280px] whitespace-normal text-sm font-semibold leading-5 text-foreground">
                           {turno.paciente
                             ? `${turno.paciente.apellido}, ${turno.paciente.nombre}`
@@ -260,20 +262,22 @@ export function TurnosPage() {
                           DNI {turno.paciente?.dni ?? '-'}
                         </p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-2.5">
                         <p className="max-w-[260px] whitespace-normal text-sm font-medium leading-5 text-foreground">
                           {turno.medico?.nombre ?? 'Médico sin datos'}
                         </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          Consultorio {turno.consultorio_cache ?? turno.medico?.consultorio ?? '-'}
+                        <p className="mt-1 text-xs font-semibold text-primary">
+                          {formatConsultorioCompact(
+                            turno.consultorio_cache ?? turno.medico?.consultorio,
+                          )}
                         </p>
                       </td>
-                      <td className="px-4 py-3 text-sm text-muted-foreground">
+                      <td className="px-4 py-2.5 text-sm text-muted-foreground">
                         <span className="inline-flex max-w-[170px] whitespace-normal leading-5">
                           {turno.obra_social}
                         </span>
                       </td>
-                      <td className="whitespace-nowrap px-4 py-3">
+                      <td className="whitespace-nowrap px-4 py-2.5">
                         <div className="flex flex-col items-start gap-1.5">
                           <StatusBadge estado={turno.estado} />
                           {isTurnoVencidoPendienteDeCierre(turno) ? (
@@ -281,7 +285,7 @@ export function TurnosPage() {
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-2 py-2.5">
                         <TurnoActions
                           isChanging={cambiarEstado.isPending}
                           isRecalling={rellamarTurno.isPending}
@@ -462,7 +466,7 @@ function TurnoFormDialog({
                   <option value="">Seleccionar médico</option>
                   {medicos.map((medico) => (
                     <option key={medico.id} value={medico.id}>
-                      {medico.nombre} - Consultorio {medico.consultorio}
+                      {medico.nombre} - {formatConsultorioCompact(medico.consultorio)}
                     </option>
                   ))}
                 </select>
@@ -515,7 +519,7 @@ function TurnoFormDialog({
 
             {selectedMedico ? (
               <div className="rounded-md border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-                Consultorio {selectedMedico.consultorio}
+                {formatConsultorioCompact(selectedMedico.consultorio)}
                 {selectedMedico.dias_disponibles?.length
                   ? ` · Días: ${selectedMedico.dias_disponibles.join(', ')}`
                   : ''}
@@ -584,75 +588,183 @@ function TurnoActions({
   onCancel,
   onStatusChange,
 }: TurnoActionsProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
   const isExpiredOpen = isTurnoVencidoPendienteDeCierre(turno)
+  const runAction = (action: () => void) => {
+    setIsMenuOpen(false)
+    action()
+  }
 
   return (
-    <div className="flex max-w-[420px] flex-wrap justify-end gap-2">
+    <div className="flex min-w-[176px] justify-center gap-1">
       {isExpiredOpen ? (
         <>
-          <Button disabled={isChanging} onClick={onAbsent} size="sm" variant="outline">
+          <ActionIconButton
+            disabled={isChanging}
+            label="Marcar ausente"
+            onClick={onAbsent}
+            variant="outline"
+          >
             <XCircle aria-hidden="true" className="h-4 w-4" />
-            Ausente
-          </Button>
-          <Button disabled={isChanging} onClick={onFinish} size="sm" variant="secondary">
+          </ActionIconButton>
+          <ActionIconButton
+            disabled={isChanging}
+            label="Finalizar"
+            onClick={onFinish}
+            variant="secondary"
+          >
             <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
-            Finalizar
-          </Button>
-          <Button disabled={isChanging} onClick={onReprogram} size="sm" variant="outline">
+          </ActionIconButton>
+          <ActionIconButton
+            disabled={isChanging}
+            label="Marcar reprogramado"
+            onClick={onReprogram}
+            variant="outline"
+          >
             <Repeat2 aria-hidden="true" className="h-4 w-4" />
-            Reprogramar
-          </Button>
+          </ActionIconButton>
         </>
       ) : (
         <>
           {turno.estado === 'pendiente' ? (
-            <Button disabled={isChanging} onClick={onStart} size="sm" variant="outline">
+            <ActionIconButton
+              disabled={isChanging}
+              label="Llamar"
+              onClick={onStart}
+              variant="outline"
+            >
               <PhoneCall aria-hidden="true" className="h-4 w-4" />
-              Llamar
-            </Button>
+            </ActionIconButton>
           ) : null}
 
           {turno.estado === 'en_atencion' ? (
             <>
-              <Button disabled={isRecalling} onClick={onRecall} size="sm" variant="outline">
+              <ActionIconButton
+                disabled={isRecalling}
+                label="Rellamar"
+                onClick={onRecall}
+                variant="outline"
+              >
                 <Repeat2 aria-hidden="true" className="h-4 w-4" />
-                Rellamar
-              </Button>
-              <Button disabled={isChanging} onClick={onFinish} size="sm" variant="secondary">
+              </ActionIconButton>
+              <ActionIconButton
+                disabled={isChanging}
+                label="Finalizar"
+                onClick={onFinish}
+                variant="secondary"
+              >
                 <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
-                Finalizar
-              </Button>
+              </ActionIconButton>
             </>
           ) : null}
 
           {!['finalizado', 'cancelado', 'ausente', 'reprogramado'].includes(turno.estado) ? (
-            <Button onClick={onCancel} size="sm" variant="ghost">
+            <ActionIconButton label="Cancelar" onClick={onCancel} variant="outline">
               <XCircle aria-hidden="true" className="h-4 w-4" />
-              Cancelar
-            </Button>
+            </ActionIconButton>
           ) : null}
         </>
       )}
 
-      <Button onClick={onEdit} size="sm" variant="outline">
+      <ActionIconButton label="Editar" onClick={onEdit} variant="outline">
         <Pencil aria-hidden="true" className="h-4 w-4" />
-        Editar
-      </Button>
+      </ActionIconButton>
 
-      <select
-        aria-label="Cambiar estado"
-        className="h-9 w-36 rounded-md border border-input bg-card px-2 text-xs outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-        onChange={(event) => onStatusChange(event.target.value as TurnoEstado)}
-        value={turno.estado}
+      <div
+        className="relative"
+        onBlur={(event) => {
+          const nextFocus = event.relatedTarget as Node | null
+
+          if (!event.currentTarget.contains(nextFocus)) {
+            setIsMenuOpen(false)
+          }
+        }}
       >
-        {turnoEstadoOptions.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+        <Button
+          aria-expanded={isMenuOpen}
+          aria-haspopup="menu"
+          aria-label="Más acciones"
+          className="h-8 w-8 p-0"
+          onClick={() => setIsMenuOpen((current) => !current)}
+          size="sm"
+          title="Más acciones"
+          type="button"
+          variant="outline"
+        >
+          <MoreVertical aria-hidden="true" className="h-4 w-4" />
+        </Button>
+
+        {isMenuOpen ? (
+          <div
+            className="absolute right-0 top-9 z-20 w-52 rounded-md border border-border bg-card p-1 text-left shadow-clinical"
+            role="menu"
+          >
+            <p className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Cambiar estado
+            </p>
+            {turnoEstadoOptions
+              .filter((option) => option.value !== turno.estado)
+              .map((option) => (
+                <button
+                  className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs font-medium text-foreground transition hover:bg-accent disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
+                  disabled={isChanging}
+                  key={option.value}
+                  onClick={() => runAction(() => onStatusChange(option.value))}
+                  role="menuitem"
+                  type="button"
+                >
+                  <span className="h-2 w-2 rounded-full border border-border" />
+                  {getStatusMenuLabel(option.value, option.label)}
+                </button>
+              ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
+}
+
+type ActionIconButtonProps = {
+  children: ReactNode
+  disabled?: boolean
+  label: string
+  onClick: () => void
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost'
+}
+
+function ActionIconButton({
+  children,
+  disabled,
+  label,
+  onClick,
+  variant = 'outline',
+}: ActionIconButtonProps) {
+  return (
+    <Button
+      aria-label={label}
+      className="h-8 w-8 p-0 hover:border-primary/30"
+      disabled={disabled}
+      onClick={onClick}
+      size="sm"
+      title={label}
+      type="button"
+      variant={variant}
+    >
+      {children}
+    </Button>
+  )
+}
+
+function getStatusMenuLabel(estado: TurnoEstado, label: string) {
+  if (estado === 'ausente') {
+    return 'Marcar ausente'
+  }
+
+  if (estado === 'reprogramado') {
+    return 'Marcar reprogramado'
+  }
+
+  return `Cambiar a ${label}`
 }
 
 function buildEmptyTurnoValues(
@@ -679,18 +791,4 @@ function mapTurnoToForm(turno: TurnoDetallado): TurnoFormValues {
     estado: turno.estado,
     notas: turno.notas ?? '',
   }
-}
-
-function DateBadge({ fecha }: { fecha: string }) {
-  const today = todayKey()
-
-  if (fecha === today) {
-    return <Badge variant="info">Hoy</Badge>
-  }
-
-  if (fecha > today) {
-    return <Badge variant="default">Futuro</Badge>
-  }
-
-  return <Badge variant="muted">Pasado</Badge>
 }
