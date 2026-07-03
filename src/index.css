@@ -261,6 +261,46 @@ a {
   }
 }
 
+.turnero-next-pulse {
+  animation: turnero-next-row-pulse 2.2s ease-in-out infinite;
+  transform-origin: center;
+}
+
+.turnero-next-pulse > td {
+  animation: turnero-next-cell-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes turnero-next-row-pulse {
+  0%,
+  100% {
+    filter: brightness(1);
+    transform: scale(1);
+  }
+
+  50% {
+    filter: brightness(1.025);
+    transform: scale(1.006);
+  }
+}
+
+@keyframes turnero-next-cell-pulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 rgb(183 121 31 / 0);
+  }
+
+  50% {
+    box-shadow: inset 0 0 28px rgb(183 121 31 / 0.16);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .turnero-next-pulse,
+  .turnero-next-pulse > td {
+    animation: none;
+  }
+}
+
 .turnero-high-contrast {
   --color-background: #020617;
   --color-foreground: #f8fafc;
