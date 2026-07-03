@@ -1,8 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback } from 'react'
 import { toast } from 'sonner'
 
 import { queryKeys } from '@/hooks/queryKeys'
-import { mockApi, type TurnoFilters, type TurnoInput } from '@/services/mock/mockApi'
+import {
+  mockApi,
+  type PosponerTurnoInput,
+  type ReprogramarTurnoInput,
+  type TurnoConflictInput,
+  type TurnoFilters,
+  type TurnoInput,
+} from '@/services/mock/mockApi'
 import type { TurnoEstado } from '@/types'
 
 function invalidateClinicalQueries(queryClient: ReturnType<typeof useQueryClient>) {
@@ -44,6 +52,20 @@ export function useTurnosDeMedico(medicoId: string) {
     queryFn: () => mockApi.listTurnos(filters),
     initialData: [],
   })
+}
+
+export function useConfirmarConflictoTurno() {
+  return useCallback(async (input: TurnoConflictInput) => {
+    const conflict = await mockApi.findTurnoConflict(input)
+
+    if (!conflict) {
+      return true
+    }
+
+    return window.confirm(
+      'Ya existe un turno para este médico en ese horario. ¿Querés guardarlo igualmente?',
+    )
+  }, [])
 }
 
 export function useCrearTurno() {
@@ -115,6 +137,53 @@ export function useCancelarTurno() {
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'No se pudo cancelar el turno.')
+    },
+  })
+}
+
+export function useMarcarAusenteTurno() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: (id: string) => mockApi.marcarAusenteTurno(id),
+    onSuccess: () => {
+      toast.success('Turno marcado como ausente.')
+      invalidateClinicalQueries(queryClient)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'No se pudo marcar el turno como ausente.')
+    },
+  })
+}
+
+export function useReprogramarTurno() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ReprogramarTurnoInput }) =>
+      mockApi.reprogramarTurno(id, input),
+    onSuccess: () => {
+      toast.success('Turno reprogramado correctamente.')
+      invalidateClinicalQueries(queryClient)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'No se pudo reprogramar el turno.')
+    },
+  })
+}
+
+export function usePosponerTurno() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: PosponerTurnoInput }) =>
+      mockApi.posponerTurno(id, input),
+    onSuccess: () => {
+      toast.success('Turno pospuesto correctamente.')
+      invalidateClinicalQueries(queryClient)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : 'No se pudo posponer el turno.')
     },
   })
 }

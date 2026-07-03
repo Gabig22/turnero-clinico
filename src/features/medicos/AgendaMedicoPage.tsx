@@ -1,13 +1,16 @@
 import {
   ArrowLeft,
+  CalendarClock,
   CalendarDays,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  Clock3,
   Pencil,
   PhoneCall,
   Plus,
   Repeat2,
+  UserX,
   XCircle,
 } from 'lucide-react'
 import { addDays, format, parseISO } from 'date-fns'
@@ -19,6 +22,8 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { AgendaMensualCalendar } from '@/components/turnos/AgendaMensualCalendar'
+import { PosponerTurnoModal } from '@/components/turnos/PosponerTurnoModal'
+import { ReprogramarTurnoModal } from '@/components/turnos/ReprogramarTurnoModal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
@@ -36,8 +41,12 @@ import {
   useActualizarTurno,
   useCambiarEstadoTurno,
   useCancelarTurno,
+  useConfirmarConflictoTurno,
   useCrearTurno,
+  useMarcarAusenteTurno,
+  usePosponerTurno,
   useRellamarTurno,
+  useReprogramarTurno,
   useTurnosDeMedico,
   useTurnosMedico,
 } from '@/hooks/useTurnos'
@@ -61,6 +70,8 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
   const [dateInputError, setDateInputError] = useState('')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingTurno, setEditingTurno] = useState<TurnoDetallado | null>(null)
+  const [reprogrammingTurno, setReprogrammingTurno] = useState<TurnoDetallado | null>(null)
+  const [postponingTurno, setPostponingTurno] = useState<TurnoDetallado | null>(null)
   const medicoQuery = useMedico(medicoId)
   const turnosMedicoQuery = useTurnosDeMedico(medicoId)
   const turnosQuery = useTurnosMedico(medicoId, selectedDate)
@@ -70,7 +81,11 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
   const actualizarTurno = useActualizarTurno()
   const cambiarEstado = useCambiarEstadoTurno()
   const cancelarTurno = useCancelarTurno()
+  const confirmarConflictoTurno = useConfirmarConflictoTurno()
+  const marcarAusente = useMarcarAusenteTurno()
+  const posponerTurno = usePosponerTurno()
   const rellamarTurno = useRellamarTurno()
+  const reprogramarTurno = useReprogramarTurno()
   const medico = medicoQuery.data
   const turnos = useMemo(() => turnosQuery.data ?? [], [turnosQuery.data])
   const turnosMedico = useMemo(() => turnosMedicoQuery.data ?? [], [turnosMedicoQuery.data])
@@ -152,6 +167,11 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
   }
   const backHref = context === 'doctor' ? '/doctor' : '/medicos'
   const backLabel = context === 'doctor' ? 'Portal médico' : 'Volver a médicos'
+  const pageTitle = context === 'doctor' ? 'Mi Agenda' : medico?.nombre
+  const pageDescription =
+    context === 'doctor'
+      ? `Agenda de ${medico?.nombre ?? 'médico demo'} · ${medico?.especialidad ?? ''}`
+      : `${medico?.especialidad ?? ''} · Consultorio ${medico?.consultorio ?? '-'}`
 
   if (medicoQuery.isLoading) {
     return <EmptyState icon={CalendarDays} title="Cargando agenda del médico" />
@@ -197,8 +217,8 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
             </Button>
           </>
         }
-        description={`${medico.especialidad} · Consultorio ${medico.consultorio}`}
-        title={medico.nombre}
+        description={pageDescription}
+        title={pageTitle ?? medico.nombre}
       />
 
       <Card>
@@ -279,14 +299,6 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
         </CardContent>
       </Card>
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <MetricCard label="Turnos del día" value={metrics.total} />
-        <MetricCard label="Pendientes" value={metrics.pendiente} variant="pending" />
-        <MetricCard label="En atención" value={metrics.en_atencion} variant="active" />
-        <MetricCard label="Finalizados" value={metrics.finalizado} variant="completed" />
-        <MetricCard label="Cancelados" value={metrics.cancelado} variant="cancelled" />
-      </section>
-
       <Card>
         <CardHeader>
           <CardTitle>Turnos del médico</CardTitle>
@@ -345,9 +357,12 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
                       <td className="px-4 py-3">
                         <TurnoActions
                           isChanging={cambiarEstado.isPending}
+                          isMarkingAbsent={marcarAusente.isPending}
+                          isPostponing={posponerTurno.isPending}
                           isRecalling={rellamarTurno.isPending}
+                          isReprogramming={reprogramarTurno.isPending}
                           onAbsent={() =>
-                            cambiarEstado.mutate({ id: turno.id, estado: 'ausente' })
+                            marcarAusente.mutate(turno.id)
                           }
                           onCancel={() => cancelTurno(turno)}
                           onEdit={() => openEditForm(turno)}
@@ -355,9 +370,8 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
                             cambiarEstado.mutate({ id: turno.id, estado: 'finalizado' })
                           }
                           onRecall={() => rellamarTurno.mutate(turno.id)}
-                          onReprogram={() =>
-                            cambiarEstado.mutate({ id: turno.id, estado: 'reprogramado' })
-                          }
+                          onPostpone={() => setPostponingTurno(turno)}
+                          onReprogram={() => setReprogrammingTurno(turno)}
                           onStart={() =>
                             cambiarEstado.mutate({ id: turno.id, estado: 'en_atencion' })
                           }
@@ -372,17 +386,32 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
           ) : (
             <EmptyState
               action={
-                <Button onClick={openCreateForm}>
-                  <Plus aria-hidden="true" className="h-4 w-4" />
-                  Crear turno para este día
-                </Button>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button onClick={openCreateForm}>
+                    <Plus aria-hidden="true" className="h-4 w-4" />
+                    Nuevo turno
+                  </Button>
+                  <Button onClick={() => setSelectedDate(todayKey())} variant="outline">
+                    <CalendarDays aria-hidden="true" className="h-4 w-4" />
+                    Ver hoy
+                  </Button>
+                </div>
               }
+              description="Podés crear un turno nuevo para esta fecha o volver a la agenda de hoy."
               icon={CalendarDays}
               title="No hay turnos para esta fecha"
             />
           )}
         </CardContent>
       </Card>
+
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <MetricCard label="Turnos del día" value={metrics.total} />
+        <MetricCard label="Pendientes" value={metrics.pendiente} variant="pending" />
+        <MetricCard label="En atención" value={metrics.en_atencion} variant="active" />
+        <MetricCard label="Finalizados" value={metrics.finalizado} variant="completed" />
+        <MetricCard label="Cancelados" value={metrics.cancelado} variant="cancelled" />
+      </section>
 
       {isFormOpen ? (
         <AgendaTurnoFormDialog
@@ -391,7 +420,18 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
           medico={medico}
           obrasSociales={obrasSociales}
           onClose={() => setIsFormOpen(false)}
-          onSubmit={(values) => {
+          onSubmit={async (values) => {
+            const shouldSave = await confirmarConflictoTurno({
+              medico_id: values.medico_id,
+              fecha: values.fecha,
+              hora: values.hora,
+              excludeId: editingTurno?.id,
+            })
+
+            if (!shouldSave) {
+              return
+            }
+
             if (editingTurno) {
               actualizarTurno.mutate(
                 { id: editingTurno.id, input: values },
@@ -408,6 +448,49 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
           turno={editingTurno}
         />
       ) : null}
+
+      <ReprogramarTurnoModal
+        isSaving={reprogramarTurno.isPending}
+        onClose={() => setReprogrammingTurno(null)}
+        onSubmit={async (input) => {
+          if (!reprogrammingTurno) {
+            return
+          }
+
+          const shouldSave = await confirmarConflictoTurno({
+            medico_id: reprogrammingTurno.medico_id,
+            fecha: input.fecha,
+            hora: input.hora,
+            excludeId: reprogrammingTurno.id,
+          })
+
+          if (!shouldSave) {
+            return
+          }
+
+          reprogramarTurno.mutate(
+            { id: reprogrammingTurno.id, input },
+            { onSuccess: () => setReprogrammingTurno(null) },
+          )
+        }}
+        turno={reprogrammingTurno}
+      />
+
+      <PosponerTurnoModal
+        isSaving={posponerTurno.isPending}
+        onClose={() => setPostponingTurno(null)}
+        onSubmit={(input) => {
+          if (!postponingTurno) {
+            return
+          }
+
+          posponerTurno.mutate(
+            { id: postponingTurno.id, input },
+            { onSuccess: () => setPostponingTurno(null) },
+          )
+        }}
+        turno={postponingTurno}
+      />
     </div>
   )
 }
@@ -483,11 +566,15 @@ function ChipList({ items, maxVisible = 6 }: { items: string[]; maxVisible?: num
 type TurnoActionsProps = {
   turno: TurnoDetallado
   isChanging: boolean
+  isMarkingAbsent: boolean
+  isPostponing: boolean
   isRecalling: boolean
+  isReprogramming: boolean
   onStart: () => void
   onRecall: () => void
   onFinish: () => void
   onAbsent: () => void
+  onPostpone: () => void
   onReprogram: () => void
   onEdit: () => void
   onCancel: () => void
@@ -496,70 +583,165 @@ type TurnoActionsProps = {
 function TurnoActions({
   turno,
   isChanging,
+  isMarkingAbsent,
+  isPostponing,
   isRecalling,
+  isReprogramming,
   onStart,
   onRecall,
   onFinish,
   onAbsent,
+  onPostpone,
   onReprogram,
   onEdit,
   onCancel,
 }: TurnoActionsProps) {
   const isExpiredOpen = isTurnoVencidoPendienteDeCierre(turno)
+  const canPostpone = ['pendiente', 'en_atencion'].includes(turno.estado)
+  const canReprogram = !['finalizado', 'cancelado', 'ausente', 'reprogramado'].includes(
+    turno.estado,
+  )
+  const canMarkAbsent = ['pendiente', 'en_atencion'].includes(turno.estado) || isExpiredOpen
 
   return (
-    <div className="flex flex-wrap justify-end gap-2">
+    <div className="flex justify-end gap-1.5">
       {isExpiredOpen ? (
         <>
-          <Button disabled={isChanging} onClick={onAbsent} size="sm" variant="outline">
-            <XCircle aria-hidden="true" className="h-4 w-4" />
-            Ausente
-          </Button>
-          <Button disabled={isChanging} onClick={onFinish} size="sm" variant="secondary">
+          <ActionIconButton
+            disabled={isMarkingAbsent}
+            label="Marcar ausente"
+            onClick={onAbsent}
+            variant="outline"
+          >
+            <UserX aria-hidden="true" className="h-4 w-4" />
+          </ActionIconButton>
+          <ActionIconButton
+            disabled={isChanging}
+            label="Finalizar"
+            onClick={onFinish}
+            variant="secondary"
+          >
             <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
-            Finalizar
-          </Button>
-          <Button disabled={isChanging} onClick={onReprogram} size="sm" variant="outline">
-            <Repeat2 aria-hidden="true" className="h-4 w-4" />
-            Reprogramar
-          </Button>
+          </ActionIconButton>
+          <ActionIconButton
+            disabled={isReprogramming}
+            label="Reprogramar"
+            onClick={onReprogram}
+            variant="outline"
+          >
+            <CalendarClock aria-hidden="true" className="h-4 w-4" />
+          </ActionIconButton>
         </>
       ) : (
         <>
           {turno.estado === 'pendiente' ? (
-            <Button disabled={isChanging} onClick={onStart} size="sm" variant="outline">
+            <ActionIconButton
+              disabled={isChanging}
+              label="Llamar"
+              onClick={onStart}
+              variant="outline"
+            >
               <PhoneCall aria-hidden="true" className="h-4 w-4" />
-              Llamar
-            </Button>
+            </ActionIconButton>
+          ) : null}
+
+          {canPostpone ? (
+            <ActionIconButton
+              disabled={isPostponing}
+              label="Posponer"
+              onClick={onPostpone}
+              variant="outline"
+            >
+              <Clock3 aria-hidden="true" className="h-4 w-4" />
+            </ActionIconButton>
+          ) : null}
+
+          {canReprogram ? (
+            <ActionIconButton
+              disabled={isReprogramming}
+              label="Reprogramar"
+              onClick={onReprogram}
+              variant="outline"
+            >
+              <CalendarClock aria-hidden="true" className="h-4 w-4" />
+            </ActionIconButton>
+          ) : null}
+
+          {canMarkAbsent && ['pendiente', 'en_atencion'].includes(turno.estado) ? (
+            <ActionIconButton
+              disabled={isMarkingAbsent}
+              label="Marcar ausente"
+              onClick={onAbsent}
+              variant="outline"
+            >
+              <UserX aria-hidden="true" className="h-4 w-4" />
+            </ActionIconButton>
           ) : null}
 
           {turno.estado === 'en_atencion' ? (
             <>
-              <Button disabled={isRecalling} onClick={onRecall} size="sm" variant="outline">
+              <ActionIconButton
+                disabled={isRecalling}
+                label="Rellamar"
+                onClick={onRecall}
+                variant="outline"
+              >
                 <Repeat2 aria-hidden="true" className="h-4 w-4" />
-                Rellamar
-              </Button>
-              <Button disabled={isChanging} onClick={onFinish} size="sm" variant="secondary">
+              </ActionIconButton>
+              <ActionIconButton
+                disabled={isChanging}
+                label="Finalizar"
+                onClick={onFinish}
+                variant="secondary"
+              >
                 <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
-                Finalizar
-              </Button>
+              </ActionIconButton>
             </>
           ) : null}
 
           {turno.estado === 'pendiente' ? (
-            <Button onClick={onCancel} size="sm" variant="ghost">
+            <ActionIconButton label="Cancelar" onClick={onCancel} variant="outline">
               <XCircle aria-hidden="true" className="h-4 w-4" />
-              Cancelar
-            </Button>
+            </ActionIconButton>
           ) : null}
         </>
       )}
 
-      <Button onClick={onEdit} size="sm" variant="outline">
+      <ActionIconButton label="Editar" onClick={onEdit} variant="outline">
         <Pencil aria-hidden="true" className="h-4 w-4" />
-        Editar
-      </Button>
+      </ActionIconButton>
     </div>
+  )
+}
+
+type ActionIconButtonProps = {
+  children: ReactNode
+  disabled?: boolean
+  label: string
+  onClick: () => void
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost'
+}
+
+function ActionIconButton({
+  children,
+  disabled,
+  label,
+  onClick,
+  variant = 'outline',
+}: ActionIconButtonProps) {
+  return (
+    <Button
+      aria-label={label}
+      className="h-8 w-8 p-0 hover:border-primary/30"
+      disabled={disabled}
+      onClick={onClick}
+      size="sm"
+      title={label}
+      type="button"
+      variant={variant}
+    >
+      {children}
+    </Button>
   )
 }
 
@@ -573,7 +755,7 @@ type AgendaTurnoFormDialogProps = {
   fecha: string
   isSaving: boolean
   onClose: () => void
-  onSubmit: (values: TurnoFormValues) => void
+  onSubmit: (values: TurnoFormValues) => Promise<void> | void
 }
 
 function AgendaTurnoFormDialog({
@@ -588,9 +770,16 @@ function AgendaTurnoFormDialog({
   onClose,
   onSubmit,
 }: AgendaTurnoFormDialogProps) {
+  const selectablePacientes = useMemo(
+    () =>
+      pacientes.filter(
+        (paciente) => paciente.activo || (turno ? paciente.id === turno.paciente_id : false),
+      ),
+    [pacientes, turno],
+  )
   const initialFormValues = turno
     ? mapTurnoToForm(turno)
-    : buildNewTurnoValues(medico.id, fecha, pacientes, timeOptions[0])
+    : buildNewTurnoValues(medico.id, fecha, selectablePacientes, timeOptions[0])
   const [formDateInputValue, setFormDateInputValue] = useState(
     formatDateDisplay(initialFormValues.fecha),
   )
@@ -625,11 +814,11 @@ function AgendaTurnoFormDialog({
   useEffect(() => {
     const nextValues = turno
       ? mapTurnoToForm(turno)
-      : buildNewTurnoValues(medico.id, fecha, pacientes, timeOptions[0])
+      : buildNewTurnoValues(medico.id, fecha, selectablePacientes, timeOptions[0])
 
     reset(nextValues)
     setFormDateInputValue(formatDateDisplay(nextValues.fecha))
-  }, [fecha, medico.id, pacientes, reset, timeOptions, turno])
+  }, [fecha, medico.id, reset, selectablePacientes, timeOptions, turno])
 
   useEffect(() => {
     const paciente = pacientes.find((item) => item.id === selectedPacienteId)
@@ -686,9 +875,10 @@ function AgendaTurnoFormDialog({
               <FormField error={errors.paciente_id?.message} label="Paciente *">
                 <select className="form-input" {...register('paciente_id')}>
                   <option value="">Seleccionar paciente</option>
-                  {pacientes.map((paciente) => (
+                  {selectablePacientes.map((paciente) => (
                     <option key={paciente.id} value={paciente.id}>
                       {paciente.apellido}, {paciente.nombre} - DNI {paciente.dni}
+                      {!paciente.activo ? ' (inactivo)' : ''}
                     </option>
                   ))}
                 </select>
@@ -774,7 +964,10 @@ function AgendaTurnoFormDialog({
             <Button disabled={isSaving} onClick={onClose} type="button" variant="outline">
               Cancelar
             </Button>
-            <Button disabled={isSaving || !pacientes.length} type="submit">
+            <Button
+              disabled={isSaving || !selectablePacientes.length || (!turno && !medico.activo)}
+              type="submit"
+            >
               {isSaving ? 'Guardando...' : turno ? 'Guardar cambios' : 'Crear turno'}
             </Button>
           </div>

@@ -37,7 +37,9 @@ const doctorItems: NavItem[] = [
   { label: 'Portal Médico', href: '/doctor', icon: UserRound },
   { label: 'Mi Agenda', href: '/doctor/agenda', icon: ClipboardList },
   { label: 'Mis Pacientes', href: '/doctor/pacientes', icon: UsersRound },
-  { label: 'Turnero', href: '/turnero', icon: Monitor },
+]
+
+const doctorSectionItems: NavItem[] = [
   { label: 'Panel admin', href: '/inicio', icon: LayoutDashboard },
 ]
 
@@ -48,7 +50,8 @@ type AppSidebarProps = {
 
 export function AppSidebar({ section = 'admin', compact = false }: AppSidebarProps) {
   const items = section === 'doctor' ? doctorItems : adminItems
-  const shouldShowSectionSwitch = section === 'admin'
+  const sectionSwitchItems = section === 'doctor' ? doctorSectionItems : adminSectionItems
+  const isDoctorSection = section === 'doctor'
 
   return (
     <nav
@@ -61,8 +64,12 @@ export function AppSidebar({ section = 'admin', compact = false }: AppSidebarPro
     >
       {!compact ? (
         <div className="mb-7 px-2">
-          <div className="text-lg font-semibold text-foreground">Turnero Clínico</div>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">Gestión demo de turnos</p>
+          <div className="text-lg font-semibold text-foreground">
+            {isDoctorSection ? 'Portal Médico' : 'Turnero Clínico'}
+          </div>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">
+            {isDoctorSection ? 'Atención diaria demo' : 'Gestión demo de turnos'}
+          </p>
         </div>
       ) : null}
 
@@ -76,7 +83,7 @@ export function AppSidebar({ section = 'admin', compact = false }: AppSidebarPro
           />
         ))}
 
-        {shouldShowSectionSwitch ? (
+        {sectionSwitchItems.length ? (
           <div
             className={cn(
               compact
@@ -92,8 +99,13 @@ export function AppSidebar({ section = 'admin', compact = false }: AppSidebarPro
               <span className="sr-only">Cambiar sección</span>
             )}
             <div className={cn('gap-1', compact ? 'flex' : 'flex flex-col')}>
-              {adminSectionItems.map((item) => (
-                <SidebarLink compact={compact} end={false} item={item} key={item.href} />
+              {sectionSwitchItems.map((item) => (
+                <SidebarLink
+                  compact={compact}
+                  end={section === 'admin' ? false : item.href === '/inicio'}
+                  item={item}
+                  key={item.href}
+                />
               ))}
             </div>
           </div>

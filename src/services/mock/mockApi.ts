@@ -13,6 +13,7 @@ import {
   writeAppSettings,
   writeTurneroSettings,
 } from '@/lib/storage/settingsStorage'
+import { formatMinutes, parseTimeToMinutes } from '@/lib/dates/timeSlots'
 import type {
   AppSettings,
   Medico,
@@ -62,6 +63,21 @@ export type MedicoInput = Pick<Medico, 'nombre' | 'especialidad' | 'consultorio'
 export type TurnoInput = Pick<Turno, 'medico_id' | 'paciente_id' | 'fecha' | 'hora' | 'obra_social'> &
   Partial<Pick<Turno, 'notas' | 'estado'>>
 
+export type TurnoConflictInput = Pick<Turno, 'medico_id' | 'fecha' | 'hora'> & {
+  excludeId?: string
+}
+
+export type ReprogramarTurnoInput = {
+  fecha: string
+  hora: string
+  motivo?: string
+}
+
+export type PosponerTurnoInput = {
+  opcion: '10' | '15' | '30' | 'fin_dia'
+  motivo?: string
+}
+
 export type AppSettingsInput = Partial<AppSettings>
 
 export type TurneroSettingsInput = Partial<TurneroSettings>
@@ -87,6 +103,149 @@ function normalizeText(value: string) {
 
 function compactOptional(value?: string | null) {
   return value?.trim() || null
+}
+
+function formatDateKeyForNote(dateKey: string) {
+  const [year, month, day] = dateKey.split('-')
+
+  return year && month && day ? `${day}/${month}/${year}` : dateKey
+}
+
+function formatNowForNote() {
+  return format(new Date(), 'dd/MM/yyyy HH:mm')
+}
+
+function appendTurnoNote(current: string | null | undefined, nextNote: string) {
+  const currentNote = current?.trim()
+  return currentNote ? `${currentNote}\n${nextNote}` : nextNote
+}
+
+function assertDateKey(value: string) {
+  if (!value?.trim()) {
+    throw new Error('La fecha es obligatoria.')
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error('Seleccioná una fecha válida.')
+  }
+}
+
+function assertTimeValue(value: string) {
+  if (!value?.trim()) {
+    throw new Error('La hora es obligatoria.')
+  }
+
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+    throw new Error('Seleccioná una hora válida.')
+  }
+}
+
+function assertTimeWithinSettings(value: string) {
+  const settings = readAppSettings()
+  const selected = parseTimeToMinutes(value)
+  const start = parseTimeToMinutes(settings.horarioInicio)
+  const end = parseTimeToMinutes(settings.horarioFin)
+
+  if (selected === null || start === null || end === null || start >= end) {
+    return
+  }
+
+  if (selected < start || selected >= end) {
+    throw new Error(
+      `La hora debe estar dentro del horario configurado (${settings.horarioInicio} a ${settings.horarioFin}).`,
+    )
+  }
+}
+
+function getTurnoOrThrow(database: MockDatabase, id: string) {
+  const turno = database.turnos.find((item) => item.id === id)
+
+  if (!turno) {
+    throw new Error('No se encontró el turno.')
+  }
+
+  return turno
+}
+
+function findTurnoConflictInDatabase(database: MockDatabase, input: TurnoConflictInput) {
+  const medicoId = input.medico_id?.trim()
+  const fecha = input.fecha?.trim()
+  const hora = input.hora?.trim()
+
+  if (!medicoId || !fecha || !hora) {
+    return null
+  }
+
+  return (
+    database.turnos.find(
+      (turno) =>
+        turno.id !== input.excludeId &&
+        turno.medico_id === medicoId &&
+        turno.fecha === fecha &&
+        turno.hora.slice(0, 5) === hora.slice(0, 5) &&
+        !['cancelado', 'ausente', 'reprogramado'].includes(turno.estado),
+    ) ?? null
+  )
+}
+
+function validateTurnoInputForSave(
+  database: MockDatabase,
+  input: Partial<TurnoInput>,
+  existingTurno?: Turno,
+) {
+  const medicoId = (input.medico_id ?? existingTurno?.medico_id ?? '').trim()
+  const pacienteId = (input.paciente_id ?? existingTurno?.paciente_id ?? '').trim()
+  const fecha = (input.fecha ?? existingTurno?.fecha ?? '').trim()
+  const hora = (input.hora ?? existingTurno?.hora ?? '').trim().slice(0, 5)
+  const obraSocial = (input.obra_social ?? existingTurno?.obra_social ?? '').trim()
+
+  if (!pacienteId) {
+    throw new Error('Seleccioná un paciente.')
+  }
+
+  if (!medicoId) {
+    throw new Error('Seleccioná un médico.')
+  }
+
+  if (!obraSocial) {
+    throw new Error('La obra social es obligatoria.')
+  }
+
+  assertDateKey(fecha)
+  assertTimeValue(hora)
+  assertTimeWithinSettings(hora)
+
+  const medico = database.medicos.find((item) => item.id === medicoId)
+  const paciente = database.pacientes.find((item) => item.id === pacienteId)
+
+  if (!medico) {
+    throw new Error('Seleccioná un médico válido.')
+  }
+
+  if (!paciente) {
+    throw new Error('Seleccioná un paciente válido.')
+  }
+
+  const changedMedico = !existingTurno || existingTurno.medico_id !== medicoId
+  const changedPaciente = !existingTurno || existingTurno.paciente_id !== pacienteId
+
+  if (changedMedico && !medico.activo) {
+    throw new Error('No se puede crear o reasignar un turno a un médico inactivo.')
+  }
+
+  if (changedPaciente && !paciente.activo) {
+    throw new Error('No se puede crear o reasignar un turno a un paciente inactivo.')
+  }
+
+  return {
+    medico,
+    paciente,
+    medicoId,
+    pacienteId,
+    fecha,
+    hora,
+    obraSocial,
+  }
 }
 
 function sortTurnosByDateAndTime(turnos: Turno[]) {
@@ -140,12 +299,16 @@ function applyTurnoEstado(
 
   const shouldCreateCallEvent = estado === 'en_atencion' && turno.estado !== 'en_atencion'
   const shouldSetCompletedAt = estado === 'finalizado' || estado === 'ausente'
+  const shouldAppendAbsentNote = estado === 'ausente' && turno.estado !== 'ausente'
   const updatedTurno: Turno = {
     ...turno,
     estado,
     started_at: estado === 'en_atencion' ? turno.started_at ?? now : turno.started_at,
     completed_at: shouldSetCompletedAt ? now : estado === 'en_atencion' ? null : turno.completed_at,
     llamado_count: shouldCreateCallEvent ? (turno.llamado_count ?? 0) + 1 : turno.llamado_count,
+    notas: shouldAppendAbsentNote
+      ? appendTurnoNote(turno.notas, `Marcado como ausente el ${formatNowForNote()}.`)
+      : turno.notas,
     updated_at: now,
   }
   const nextEvents = shouldCreateCallEvent
@@ -456,10 +619,18 @@ export const mockApi = {
     return enrichTurnosFromDatabase(database, sortTurnosByDateAndTime(turnos))
   },
 
+  findTurnoConflict: async (input: TurnoConflictInput) => {
+    const database = readMockStorage()
+    const conflict = findTurnoConflictInDatabase(database, input)
+
+    return conflict ? enrichTurnosFromDatabase(database, [conflict])[0] : null
+  },
+
   createTurno: async (input: TurnoInput) => {
     const database = readMockStorage()
-    const medico = database.medicos.find((item) => item.id === input.medico_id)
-    const paciente = database.pacientes.find((item) => item.id === input.paciente_id)
+    const validatedTurno = validateTurnoInputForSave(database, input)
+    const medico = validatedTurno.medico
+    const paciente = validatedTurno.paciente
     const now = new Date().toISOString()
 
     if (!medico) {
@@ -472,16 +643,17 @@ export const mockApi = {
 
     const turno: Turno = {
       id: createId('turno'),
-      medico_id: input.medico_id,
-      paciente_id: input.paciente_id,
-      fecha: input.fecha,
-      hora: input.hora,
+      medico_id: validatedTurno.medicoId,
+      paciente_id: validatedTurno.pacienteId,
+      fecha: validatedTurno.fecha,
+      hora: validatedTurno.hora,
       estado: 'pendiente',
-      obra_social: input.obra_social.trim(),
+      obra_social: validatedTurno.obraSocial,
       consultorio_cache: medico.consultorio,
       notas: compactOptional(input.notas),
       llamado_count: 0,
       pospuesto_count: 0,
+      reprogramado_count: 0,
       started_at: null,
       completed_at: null,
       created_at: now,
@@ -511,10 +683,11 @@ export const mockApi = {
       throw new Error('No se encontró el turno.')
     }
 
-    const medicoId = input.medico_id ?? turno.medico_id
-    const pacienteId = input.paciente_id ?? turno.paciente_id
-    const medico = database.medicos.find((item) => item.id === medicoId)
-    const paciente = database.pacientes.find((item) => item.id === pacienteId)
+    const validatedTurno = validateTurnoInputForSave(database, input, turno)
+    const medicoId = validatedTurno.medicoId
+    const pacienteId = validatedTurno.pacienteId
+    const medico = validatedTurno.medico
+    const paciente = validatedTurno.paciente
 
     if (!medico) {
       throw new Error('Seleccioná un médico válido.')
@@ -528,9 +701,9 @@ export const mockApi = {
       ...turno,
       medico_id: medicoId,
       paciente_id: pacienteId,
-      fecha: input.fecha ?? turno.fecha,
-      hora: input.hora ?? turno.hora,
-      obra_social: input.obra_social?.trim() ?? turno.obra_social,
+      fecha: validatedTurno.fecha,
+      hora: validatedTurno.hora,
+      obra_social: validatedTurno.obraSocial,
       estado: input.estado ?? turno.estado,
       consultorio_cache: medico.consultorio,
       notas: input.notas === undefined ? turno.notas : compactOptional(input.notas),
@@ -565,6 +738,98 @@ export const mockApi = {
   },
 
   cancelarTurno: async (id: string) => mockApi.cambiarEstadoTurno(id, 'cancelado'),
+
+  marcarAusenteTurno: async (id: string) => mockApi.cambiarEstadoTurno(id, 'ausente'),
+
+  reprogramarTurno: async (id: string, input: ReprogramarTurnoInput) => {
+    assertDateKey(input.fecha)
+    assertTimeValue(input.hora)
+    assertTimeWithinSettings(input.hora)
+
+    const database = readMockStorage()
+    const turno = getTurnoOrThrow(database, id)
+
+    if (['finalizado', 'cancelado', 'ausente'].includes(turno.estado)) {
+      throw new Error('Este turno ya está cerrado y no se puede reprogramar.')
+    }
+
+    const motivo = input.motivo?.trim()
+    const originalDateTime = `${formatDateKeyForNote(turno.fecha)} ${turno.hora.slice(0, 5)}`
+    const note = `Reprogramado desde ${originalDateTime}.${motivo ? ` Motivo: ${motivo}` : ''}`
+    const updatedTurno: Turno = {
+      ...turno,
+      fecha: input.fecha,
+      hora: input.hora,
+      estado: 'pendiente',
+      started_at: null,
+      completed_at: null,
+      reprogramado_count: (turno.reprogramado_count ?? 0) + 1,
+      notas: appendTurnoNote(turno.notas, note),
+      updated_at: new Date().toISOString(),
+    }
+    const nextDatabase = {
+      ...database,
+      turnos: sortTurnosByDateAndTime(
+        database.turnos.map((item) => (item.id === id ? updatedTurno : item)),
+      ),
+    }
+
+    writeMockStorage(nextDatabase)
+
+    return enrichTurnosFromDatabase(nextDatabase, [updatedTurno])[0]
+  },
+
+  posponerTurno: async (id: string, input: PosponerTurnoInput) => {
+    const database = readMockStorage()
+    const turno = getTurnoOrThrow(database, id)
+
+    if (!['pendiente', 'en_atencion'].includes(turno.estado)) {
+      throw new Error('Solo se pueden posponer turnos pendientes o en atención.')
+    }
+
+    const currentMinutes = parseTimeToMinutes(turno.hora)
+
+    if (currentMinutes === null) {
+      throw new Error('El turno no tiene una hora válida para posponer.')
+    }
+
+    const appSettings = readAppSettings()
+    const nextMinutes =
+      input.opcion === 'fin_dia'
+        ? Math.max(
+            ...database.turnos
+              .filter((item) => item.medico_id === turno.medico_id && item.fecha === turno.fecha)
+              .map((item) => parseTimeToMinutes(item.hora))
+              .filter((value): value is number => value !== null),
+            currentMinutes,
+          ) + (appSettings.slotDuracion || 10)
+        : currentMinutes + Number(input.opcion)
+    const nextHora = formatMinutes(Math.min(nextMinutes, 23 * 60 + 59))
+    const motivo = input.motivo?.trim()
+    const optionLabel =
+      input.opcion === 'fin_dia' ? 'al final del día' : `${input.opcion} minutos`
+    const note = `Pospuesto ${optionLabel}.${motivo ? ` Motivo: ${motivo}` : ''}`
+    const updatedTurno: Turno = {
+      ...turno,
+      hora: nextHora,
+      estado: 'pendiente',
+      started_at: null,
+      completed_at: null,
+      pospuesto_count: (turno.pospuesto_count ?? 0) + 1,
+      notas: appendTurnoNote(turno.notas, note),
+      updated_at: new Date().toISOString(),
+    }
+    const nextDatabase = {
+      ...database,
+      turnos: sortTurnosByDateAndTime(
+        database.turnos.map((item) => (item.id === id ? updatedTurno : item)),
+      ),
+    }
+
+    writeMockStorage(nextDatabase)
+
+    return enrichTurnosFromDatabase(nextDatabase, [updatedTurno])[0]
+  },
 
   siguienteTurno: async (medicoId: string) => {
     const database = readMockStorage()

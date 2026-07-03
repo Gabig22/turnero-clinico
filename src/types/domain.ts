@@ -49,6 +49,7 @@ export type Turno = {
   notas?: string | null
   llamado_count?: number
   pospuesto_count?: number
+  reprogramado_count?: number
   started_at?: string | null
   completed_at?: string | null
   created_at?: string

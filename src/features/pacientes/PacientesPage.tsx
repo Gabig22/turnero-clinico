@@ -220,7 +220,7 @@ type PacienteFormDialogProps = {
   onSubmit: (values: PacienteFormValues) => void
 }
 
-function PacienteFormDialog({
+export function PacienteFormDialog({
   paciente,
   obrasSociales,
   isSaving,

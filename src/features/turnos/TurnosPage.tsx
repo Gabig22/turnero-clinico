@@ -1,12 +1,14 @@
 import {
   CalendarClock,
   CheckCircle2,
+  Clock3,
   MoreVertical,
   Pencil,
   PhoneCall,
   Plus,
   Repeat2,
   Search,
+  UserX,
   XCircle,
 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
@@ -15,6 +17,8 @@ import { useForm } from 'react-hook-form'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { PosponerTurnoModal } from '@/components/turnos/PosponerTurnoModal'
+import { ReprogramarTurnoModal } from '@/components/turnos/ReprogramarTurnoModal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -25,8 +29,12 @@ import {
   useActualizarTurno,
   useCambiarEstadoTurno,
   useCancelarTurno,
+  useConfirmarConflictoTurno,
   useCrearTurno,
+  useMarcarAusenteTurno,
+  usePosponerTurno,
   useRellamarTurno,
+  useReprogramarTurno,
   useTurnos,
 } from '@/hooks/useTurnos'
 import { formatDateDisplay } from '@/lib/dates/displayDate'
@@ -60,6 +68,8 @@ export function TurnosPage() {
   const [consultorio, setConsultorio] = useState('')
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingTurno, setEditingTurno] = useState<TurnoDetallado | null>(null)
+  const [reprogrammingTurno, setReprogrammingTurno] = useState<TurnoDetallado | null>(null)
+  const [postponingTurno, setPostponingTurno] = useState<TurnoDetallado | null>(null)
   const filters = useMemo(
     () => ({
       search,
@@ -79,7 +89,11 @@ export function TurnosPage() {
   const actualizarTurno = useActualizarTurno()
   const cambiarEstado = useCambiarEstadoTurno()
   const cancelarTurno = useCancelarTurno()
+  const confirmarConflictoTurno = useConfirmarConflictoTurno()
+  const marcarAusente = useMarcarAusenteTurno()
+  const posponerTurno = usePosponerTurno()
   const rellamarTurno = useRellamarTurno()
+  const reprogramarTurno = useReprogramarTurno()
   const appSettings = appSettingsQuery.data ?? DEFAULT_APP_SETTINGS
   const obrasSociales = useMemo(() => {
     const fromSettings = appSettings.obrasSociales
@@ -288,9 +302,12 @@ export function TurnosPage() {
                       <td className="px-2 py-2.5">
                         <TurnoActions
                           isChanging={cambiarEstado.isPending}
+                          isMarkingAbsent={marcarAusente.isPending}
+                          isPostponing={posponerTurno.isPending}
                           isRecalling={rellamarTurno.isPending}
+                          isReprogramming={reprogramarTurno.isPending}
                           onAbsent={() =>
-                            cambiarEstado.mutate({ id: turno.id, estado: 'ausente' })
+                            marcarAusente.mutate(turno.id)
                           }
                           onCancel={() => cancelTurno(turno)}
                           onEdit={() => openEditForm(turno)}
@@ -298,15 +315,19 @@ export function TurnosPage() {
                             cambiarEstado.mutate({ id: turno.id, estado: 'finalizado' })
                           }
                           onRecall={() => rellamarTurno.mutate(turno.id)}
-                          onReprogram={() =>
-                            cambiarEstado.mutate({ id: turno.id, estado: 'reprogramado' })
-                          }
+                          onPostpone={() => setPostponingTurno(turno)}
+                          onReprogram={() => setReprogrammingTurno(turno)}
                           onStart={() =>
                             cambiarEstado.mutate({ id: turno.id, estado: 'en_atencion' })
                           }
-                          onStatusChange={(estado) =>
+                          onStatusChange={(estado) => {
+                            if (estado === 'ausente') {
+                              marcarAusente.mutate(turno.id)
+                              return
+                            }
+
                             cambiarEstado.mutate({ id: turno.id, estado })
-                          }
+                          }}
                           turno={turno}
                         />
                       </td>
@@ -331,7 +352,18 @@ export function TurnosPage() {
           medicos={medicosQuery.data ?? []}
           obrasSociales={obrasSociales}
           onClose={() => setIsFormOpen(false)}
-          onSubmit={(values) => {
+          onSubmit={async (values) => {
+            const shouldSave = await confirmarConflictoTurno({
+              medico_id: values.medico_id,
+              fecha: values.fecha,
+              hora: values.hora,
+              excludeId: editingTurno?.id,
+            })
+
+            if (!shouldSave) {
+              return
+            }
+
             if (editingTurno) {
               actualizarTurno.mutate(
                 { id: editingTurno.id, input: values },
@@ -348,6 +380,49 @@ export function TurnosPage() {
           turno={editingTurno}
         />
       ) : null}
+
+      <ReprogramarTurnoModal
+        isSaving={reprogramarTurno.isPending}
+        onClose={() => setReprogrammingTurno(null)}
+        onSubmit={async (input) => {
+          if (!reprogrammingTurno) {
+            return
+          }
+
+          const shouldSave = await confirmarConflictoTurno({
+            medico_id: reprogrammingTurno.medico_id,
+            fecha: input.fecha,
+            hora: input.hora,
+            excludeId: reprogrammingTurno.id,
+          })
+
+          if (!shouldSave) {
+            return
+          }
+
+          reprogramarTurno.mutate(
+            { id: reprogrammingTurno.id, input },
+            { onSuccess: () => setReprogrammingTurno(null) },
+          )
+        }}
+        turno={reprogrammingTurno}
+      />
+
+      <PosponerTurnoModal
+        isSaving={posponerTurno.isPending}
+        onClose={() => setPostponingTurno(null)}
+        onSubmit={(input) => {
+          if (!postponingTurno) {
+            return
+          }
+
+          posponerTurno.mutate(
+            { id: postponingTurno.id, input },
+            { onSuccess: () => setPostponingTurno(null) },
+          )
+        }}
+        turno={postponingTurno}
+      />
     </div>
   )
 }
@@ -361,7 +436,7 @@ type TurnoFormDialogProps = {
   slotDuracion: number
   isSaving: boolean
   onClose: () => void
-  onSubmit: (values: TurnoFormValues) => void
+  onSubmit: (values: TurnoFormValues) => Promise<void> | void
 }
 
 function TurnoFormDialog({
@@ -389,6 +464,20 @@ function TurnoFormDialog({
       ),
     [timeOptions, turno],
   )
+  const selectablePacientes = useMemo(
+    () =>
+      pacientes.filter(
+        (paciente) => paciente.activo || (turno ? paciente.id === turno.paciente_id : false),
+      ),
+    [pacientes, turno],
+  )
+  const selectableMedicos = useMemo(
+    () =>
+      medicos.filter(
+        (medico) => medico.activo || (turno ? medico.id === turno.medico_id : false),
+      ),
+    [medicos, turno],
+  )
   const {
     formState: { errors },
     handleSubmit,
@@ -400,15 +489,19 @@ function TurnoFormDialog({
   } = useForm<TurnoFormValues>({
     defaultValues: turno
       ? mapTurnoToForm(turno)
-      : buildEmptyTurnoValues(pacientes, medicos, timeOptions[0]),
+      : buildEmptyTurnoValues(selectablePacientes, selectableMedicos, timeOptions[0]),
   })
   const selectedPacienteId = watch('paciente_id')
   const selectedMedicoId = watch('medico_id')
-  const selectedMedico = medicos.find((medico) => medico.id === selectedMedicoId)
+  const selectedMedico = selectableMedicos.find((medico) => medico.id === selectedMedicoId)
 
   useEffect(() => {
-    reset(turno ? mapTurnoToForm(turno) : buildEmptyTurnoValues(pacientes, medicos, timeOptions[0]))
-  }, [medicos, pacientes, reset, timeOptions, turno])
+    reset(
+      turno
+        ? mapTurnoToForm(turno)
+        : buildEmptyTurnoValues(selectablePacientes, selectableMedicos, timeOptions[0]),
+    )
+  }, [reset, selectableMedicos, selectablePacientes, timeOptions, turno])
 
   useEffect(() => {
     const paciente = pacientes.find((item) => item.id === selectedPacienteId)
@@ -453,9 +546,10 @@ function TurnoFormDialog({
               <FormField error={errors.paciente_id?.message} label="Paciente *">
                 <select className="form-input" {...register('paciente_id')}>
                   <option value="">Seleccionar paciente</option>
-                  {pacientes.map((paciente) => (
+                  {selectablePacientes.map((paciente) => (
                     <option key={paciente.id} value={paciente.id}>
                       {paciente.apellido}, {paciente.nombre} - DNI {paciente.dni}
+                      {!paciente.activo ? ' (inactivo)' : ''}
                     </option>
                   ))}
                 </select>
@@ -464,9 +558,10 @@ function TurnoFormDialog({
               <FormField error={errors.medico_id?.message} label="Médico *">
                 <select className="form-input" {...register('medico_id')}>
                   <option value="">Seleccionar médico</option>
-                  {medicos.map((medico) => (
+                  {selectableMedicos.map((medico) => (
                     <option key={medico.id} value={medico.id}>
                       {medico.nombre} - {formatConsultorioCompact(medico.consultorio)}
+                      {!medico.activo ? ' (inactivo)' : ''}
                     </option>
                   ))}
                 </select>
@@ -535,7 +630,10 @@ function TurnoFormDialog({
             <Button disabled={isSaving} onClick={onClose} type="button" variant="outline">
               Cancelar
             </Button>
-            <Button disabled={isSaving || !pacientes.length || !medicos.length} type="submit">
+            <Button
+              disabled={isSaving || !selectablePacientes.length || !selectableMedicos.length}
+              type="submit"
+            >
               {isSaving ? 'Guardando...' : turno ? 'Guardar cambios' : 'Crear turno'}
             </Button>
           </div>
@@ -564,11 +662,15 @@ function FormField({ label, error, children }: FormFieldProps) {
 type TurnoActionsProps = {
   turno: TurnoDetallado
   isChanging: boolean
+  isMarkingAbsent: boolean
+  isPostponing: boolean
   isRecalling: boolean
+  isReprogramming: boolean
   onStart: () => void
   onRecall: () => void
   onFinish: () => void
   onAbsent: () => void
+  onPostpone: () => void
   onReprogram: () => void
   onEdit: () => void
   onCancel: () => void
@@ -578,11 +680,15 @@ type TurnoActionsProps = {
 function TurnoActions({
   turno,
   isChanging,
+  isMarkingAbsent,
+  isPostponing,
   isRecalling,
+  isReprogramming,
   onStart,
   onRecall,
   onFinish,
   onAbsent,
+  onPostpone,
   onReprogram,
   onEdit,
   onCancel,
@@ -590,6 +696,11 @@ function TurnoActions({
 }: TurnoActionsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const isExpiredOpen = isTurnoVencidoPendienteDeCierre(turno)
+  const canPostpone = ['pendiente', 'en_atencion'].includes(turno.estado)
+  const canReprogram = !['finalizado', 'cancelado', 'ausente', 'reprogramado'].includes(
+    turno.estado,
+  )
+  const canMarkAbsent = ['pendiente', 'en_atencion'].includes(turno.estado) || isExpiredOpen
   const runAction = (action: () => void) => {
     setIsMenuOpen(false)
     action()
@@ -600,12 +711,12 @@ function TurnoActions({
       {isExpiredOpen ? (
         <>
           <ActionIconButton
-            disabled={isChanging}
+            disabled={isMarkingAbsent}
             label="Marcar ausente"
             onClick={onAbsent}
             variant="outline"
           >
-            <XCircle aria-hidden="true" className="h-4 w-4" />
+            <UserX aria-hidden="true" className="h-4 w-4" />
           </ActionIconButton>
           <ActionIconButton
             disabled={isChanging}
@@ -616,12 +727,12 @@ function TurnoActions({
             <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
           </ActionIconButton>
           <ActionIconButton
-            disabled={isChanging}
-            label="Marcar reprogramado"
+            disabled={isReprogramming}
+            label="Reprogramar"
             onClick={onReprogram}
             variant="outline"
           >
-            <Repeat2 aria-hidden="true" className="h-4 w-4" />
+            <CalendarClock aria-hidden="true" className="h-4 w-4" />
           </ActionIconButton>
         </>
       ) : (
@@ -634,6 +745,17 @@ function TurnoActions({
               variant="outline"
             >
               <PhoneCall aria-hidden="true" className="h-4 w-4" />
+            </ActionIconButton>
+          ) : null}
+
+          {canPostpone ? (
+            <ActionIconButton
+              disabled={isPostponing}
+              label="Posponer"
+              onClick={onPostpone}
+              variant="outline"
+            >
+              <Clock3 aria-hidden="true" className="h-4 w-4" />
             </ActionIconButton>
           ) : null}
 
@@ -658,7 +780,7 @@ function TurnoActions({
             </>
           ) : null}
 
-          {!['finalizado', 'cancelado', 'ausente', 'reprogramado'].includes(turno.estado) ? (
+          {turno.estado === 'pendiente' ? (
             <ActionIconButton label="Cancelar" onClick={onCancel} variant="outline">
               <XCircle aria-hidden="true" className="h-4 w-4" />
             </ActionIconButton>
@@ -700,10 +822,53 @@ function TurnoActions({
             role="menu"
           >
             <p className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              Acciones
+            </p>
+            {canReprogram ? (
+              <button
+                className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs font-medium text-foreground transition hover:bg-accent disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
+                disabled={isReprogramming}
+                onClick={() => runAction(onReprogram)}
+                role="menuitem"
+                type="button"
+              >
+                <CalendarClock aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+                Reprogramar
+              </button>
+            ) : null}
+            {canPostpone ? (
+              <button
+                className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs font-medium text-foreground transition hover:bg-accent disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
+                disabled={isPostponing}
+                onClick={() => runAction(onPostpone)}
+                role="menuitem"
+                type="button"
+              >
+                <Clock3 aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+                Posponer
+              </button>
+            ) : null}
+            {canMarkAbsent && turno.estado !== 'ausente' ? (
+              <button
+                className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs font-medium text-foreground transition hover:bg-accent disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
+                disabled={isMarkingAbsent}
+                onClick={() => runAction(onAbsent)}
+                role="menuitem"
+                type="button"
+              >
+                <UserX aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+                Marcar ausente
+              </button>
+            ) : null}
+            <p className="px-2 py-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               Cambiar estado
             </p>
             {turnoEstadoOptions
-              .filter((option) => option.value !== turno.estado)
+              .filter(
+                (option) =>
+                  option.value !== turno.estado &&
+                  !['pospuesto', 'reprogramado', 'ausente'].includes(option.value),
+              )
               .map((option) => (
                 <button
                   className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs font-medium text-foreground transition hover:bg-accent disabled:cursor-default disabled:opacity-50 disabled:hover:bg-transparent"
