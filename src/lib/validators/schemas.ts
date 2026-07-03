@@ -70,7 +70,15 @@ export const turnoSchema = z.object({
     .regex(timePattern, 'La hora debe tener formato HH:mm'),
   obra_social: z.string().trim().min(1, 'La obra social es obligatoria'),
   estado: z
-    .enum(['pendiente', 'en_atencion', 'finalizado', 'cancelado', 'pospuesto'])
+    .enum([
+      'pendiente',
+      'en_atencion',
+      'finalizado',
+      'cancelado',
+      'pospuesto',
+      'ausente',
+      'reprogramado',
+    ])
     .optional(),
   notas: z.string().trim().max(1000).optional(),
 })

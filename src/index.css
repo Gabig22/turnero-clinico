@@ -81,6 +81,186 @@ a {
   box-shadow: 0 0 0 2px rgb(15 118 110 / 0.15);
 }
 
+.agenda-calendar {
+  --fc-border-color: var(--color-border);
+  --fc-neutral-bg-color: var(--color-muted);
+  --fc-page-bg-color: var(--color-card);
+  --fc-today-bg-color: var(--color-primary-soft);
+}
+
+.agenda-calendar .fc {
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+}
+
+.agenda-calendar .fc-toolbar {
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.agenda-calendar .fc-toolbar-title {
+  color: var(--color-foreground);
+  font-size: 1rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.agenda-calendar .fc-button {
+  border-radius: 0.375rem;
+  box-shadow: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: 1.25rem;
+  padding: 0.4rem 0.65rem;
+  text-transform: none;
+}
+
+.agenda-calendar .fc-button-primary {
+  background: var(--color-card);
+  border-color: var(--color-border);
+  color: var(--color-foreground);
+}
+
+.agenda-calendar .fc-button-primary:disabled {
+  background: var(--color-muted);
+  border-color: var(--color-border);
+  color: var(--color-muted-foreground);
+  opacity: 1;
+}
+
+.agenda-calendar .fc-button-primary:not(:disabled):focus,
+.agenda-calendar .fc-button-primary:not(:disabled):hover {
+  background: var(--color-accent);
+  border-color: var(--color-primary);
+  color: var(--color-accent-foreground);
+  box-shadow: none;
+}
+
+.agenda-calendar .fc-button-primary:not(:disabled).fc-button-active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-primary-foreground);
+}
+
+.agenda-calendar .fc-col-header-cell {
+  background: var(--color-muted);
+  padding: 0.35rem 0;
+}
+
+.agenda-calendar .fc-col-header-cell-cushion {
+  color: var(--color-muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.agenda-calendar .fc-daygrid-day-number {
+  color: var(--color-muted-foreground);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  padding: 0.45rem;
+}
+
+.agenda-calendar .fc-daygrid-day-frame {
+  min-height: 6rem;
+}
+
+.agenda-calendar .fc-day-today .fc-daygrid-day-number {
+  color: var(--color-primary);
+}
+
+.agenda-calendar .agenda-calendar-day-selected .fc-daygrid-day-frame {
+  outline: 2px solid rgb(15 118 110 / 0.35);
+  outline-offset: -2px;
+}
+
+.agenda-calendar .fc-event {
+  border: 0;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  padding: 0.1rem 0.3rem;
+}
+
+.agenda-calendar .fc-daygrid-event {
+  margin: 0.125rem 0.25rem 0;
+}
+
+.agenda-calendar .fc-event-title {
+  font-weight: 600;
+  white-space: normal;
+}
+
+.agenda-calendar .fc-daygrid-more-link {
+  color: var(--color-primary);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.agenda-calendar-event--pendiente {
+  background: #fff7df;
+  border-left: 3px solid var(--color-warning);
+  color: #7a4a0b;
+}
+
+.agenda-calendar-event--en-atencion {
+  background: #dbeafe;
+  border-left: 3px solid var(--color-info);
+  color: #1e3a8a;
+}
+
+.agenda-calendar-event--finalizado {
+  background: #dcfce7;
+  border-left: 3px solid var(--color-success);
+  color: #14532d;
+}
+
+.agenda-calendar-event--cancelado {
+  background: #fee2e2;
+  border-left: 3px solid var(--color-destructive);
+  color: #7f1d1d;
+}
+
+.agenda-calendar-event--pospuesto {
+  background: #fef3c7;
+  border-left: 3px solid #d97706;
+  color: #78350f;
+}
+
+.agenda-calendar-event--ausente {
+  background: #f1f5f9;
+  border-left: 3px solid #64748b;
+  color: #334155;
+}
+
+.agenda-calendar-event--reprogramado {
+  background: #e0f2fe;
+  border-left: 3px solid #0284c7;
+  color: #075985;
+}
+
+@media (max-width: 640px) {
+  .agenda-calendar .fc-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .agenda-calendar .fc-toolbar-chunk {
+    display: flex;
+    justify-content: center;
+  }
+
+  .agenda-calendar .fc-daygrid-day-frame {
+    min-height: 4.75rem;
+  }
+
+  .agenda-calendar .fc-event {
+    font-size: 0.6875rem;
+  }
+}
+
 .turnero-high-contrast {
   --color-background: #020617;
   --color-foreground: #f8fafc;

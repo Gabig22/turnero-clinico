@@ -19,6 +19,33 @@ export function useTurnos(filters: TurnoFilters = {}) {
   })
 }
 
+export function useTurnosMedico(medicoId: string, fecha: string) {
+  const filters = {
+    medico_id: medicoId,
+    fecha,
+  }
+
+  return useQuery({
+    enabled: Boolean(medicoId && fecha),
+    queryKey: queryKeys.turnos.list(filters),
+    queryFn: () => mockApi.listTurnos(filters),
+    initialData: [],
+  })
+}
+
+export function useTurnosDeMedico(medicoId: string) {
+  const filters = {
+    medico_id: medicoId,
+  }
+
+  return useQuery({
+    enabled: Boolean(medicoId),
+    queryKey: queryKeys.turnos.list(filters),
+    queryFn: () => mockApi.listTurnos(filters),
+    initialData: [],
+  })
+}
+
 export function useCrearTurno() {
   const queryClient = useQueryClient()
 
@@ -61,6 +88,10 @@ export function useCambiarEstadoTurno() {
         toast.success('Paciente llamado correctamente.')
       } else if (turno.estado === 'finalizado') {
         toast.success('Turno finalizado.')
+      } else if (turno.estado === 'ausente') {
+        toast.success('Turno marcado como ausente.')
+      } else if (turno.estado === 'reprogramado') {
+        toast.success('Turno marcado como reprogramado.')
       } else {
         toast.success('Estado del turno actualizado.')
       }

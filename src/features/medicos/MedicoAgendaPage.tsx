@@ -1,16 +1,9 @@
-import { CalendarDays } from 'lucide-react'
 import { useParams } from 'react-router-dom'
 
-import { ModulePlaceholder } from '@/components/shared/ModulePlaceholder'
+import { AgendaMedicoPage } from '@/features/medicos/AgendaMedicoPage'
 
 export function MedicoAgendaPage() {
   const { id } = useParams()
 
-  return (
-    <ModulePlaceholder
-      description={`Agenda individual del médico seleccionado. Identificador demo: ${id ?? 'sin definir'}.`}
-      icon={CalendarDays}
-      title="Agenda del médico"
-    />
-  )
+  return <AgendaMedicoPage medicoId={id} />
 }

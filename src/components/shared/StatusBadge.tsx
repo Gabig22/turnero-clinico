@@ -8,26 +8,13 @@ const statusConfig: Record<
     variant: 'default' | 'muted' | 'success' | 'warning' | 'info' | 'destructive'
   }
 > = {
-  pendiente: {
-    label: 'Pendiente',
-    variant: 'warning',
-  },
-  en_atencion: {
-    label: 'En curso',
-    variant: 'info',
-  },
-  finalizado: {
-    label: 'Finalizado',
-    variant: 'success',
-  },
-  cancelado: {
-    label: 'Cancelado',
-    variant: 'destructive',
-  },
-  pospuesto: {
-    label: 'Pospuesto',
-    variant: 'muted',
-  },
+  pendiente: { label: 'Pendiente', variant: 'warning' },
+  en_atencion: { label: 'En atención', variant: 'info' },
+  finalizado: { label: 'Finalizado', variant: 'success' },
+  cancelado: { label: 'Cancelado', variant: 'destructive' },
+  pospuesto: { label: 'Pospuesto', variant: 'muted' },
+  ausente: { label: 'Ausente', variant: 'destructive' },
+  reprogramado: { label: 'Reprogramado', variant: 'default' },
 }
 
 type StatusBadgeProps = {

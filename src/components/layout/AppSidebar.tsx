@@ -27,12 +27,15 @@ const adminItems: NavItem[] = [
   { label: 'Pacientes', href: '/pacientes', icon: UsersRound },
   { label: 'Turnero', href: '/turnero', icon: Monitor },
   { label: 'Configuración', href: '/configuracion', icon: Settings },
+  { label: 'Portal Médico', href: '/doctor', icon: UserRound },
 ]
 
 const doctorItems: NavItem[] = [
   { label: 'Portal Médico', href: '/doctor', icon: UserRound },
   { label: 'Mi Agenda', href: '/doctor/agenda', icon: ClipboardList },
   { label: 'Mis Pacientes', href: '/doctor/pacientes', icon: UsersRound },
+  { label: 'Turnero', href: '/turnero', icon: Monitor },
+  { label: 'Panel admin', href: '/inicio', icon: LayoutDashboard },
 ]
 
 type AppSidebarProps = {

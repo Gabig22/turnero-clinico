@@ -139,11 +139,12 @@ function applyTurnoEstado(
   }
 
   const shouldCreateCallEvent = estado === 'en_atencion' && turno.estado !== 'en_atencion'
+  const shouldSetCompletedAt = estado === 'finalizado' || estado === 'ausente'
   const updatedTurno: Turno = {
     ...turno,
     estado,
     started_at: estado === 'en_atencion' ? turno.started_at ?? now : turno.started_at,
-    completed_at: estado === 'finalizado' ? now : estado === 'en_atencion' ? null : turno.completed_at,
+    completed_at: shouldSetCompletedAt ? now : estado === 'en_atencion' ? null : turno.completed_at,
     llamado_count: shouldCreateCallEvent ? (turno.llamado_count ?? 0) + 1 : turno.llamado_count,
     updated_at: now,
   }

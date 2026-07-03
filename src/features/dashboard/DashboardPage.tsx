@@ -1,4 +1,5 @@
 import {
+  CalendarDays,
   CalendarPlus,
   CheckCircle2,
   ClipboardList,
@@ -26,6 +27,8 @@ const statusLabels: Record<TurnoEstado, string> = {
   finalizado: 'Finalizados',
   cancelado: 'Cancelados',
   pospuesto: 'Pospuestos',
+  ausente: 'Ausentes',
+  reprogramado: 'Reprogramados',
 }
 
 export function DashboardPage() {
@@ -258,6 +261,14 @@ function DoctorCard({
         </div>
 
         <div className="flex flex-wrap gap-2">
+          <Link
+            className={buttonVariants({ variant: 'ghost', size: 'sm' })}
+            to={`/agenda/${medico.id}`}
+          >
+            <CalendarDays aria-hidden="true" className="h-4 w-4" />
+            Ver agenda
+          </Link>
+
           <Button disabled={isCalling || !hasPending} onClick={onCallNext} size="sm" variant="outline">
             <Play aria-hidden="true" className="h-4 w-4" />
             Llamar siguiente

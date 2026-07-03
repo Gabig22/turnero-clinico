@@ -28,17 +28,12 @@ import {
   useRellamarTurno,
   useTurnos,
 } from '@/hooks/useTurnos'
+import { formatDateDisplay } from '@/lib/dates/displayDate'
+import { generateTimeOptions } from '@/lib/dates/timeSlots'
 import { DEFAULT_APP_SETTINGS } from '@/lib/storage/settingsStorage'
+import { isTurnoVencidoPendienteDeCierre, turnoEstadoOptions } from '@/lib/turnos/status'
 import { turnoSchema, type TurnoFormValues } from '@/lib/validators/schemas'
 import type { Medico, Paciente, TurnoDetallado, TurnoEstado } from '@/types'
-
-const estadoOptions: Array<{ value: TurnoEstado; label: string }> = [
-  { value: 'pendiente', label: 'Pendiente' },
-  { value: 'en_atencion', label: 'En atención' },
-  { value: 'finalizado', label: 'Finalizado' },
-  { value: 'cancelado', label: 'Cancelado' },
-  { value: 'pospuesto', label: 'Pospuesto' },
-]
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10)
@@ -165,7 +160,7 @@ export function TurnosPage() {
               value={estado}
             >
               <option value="todos">Todos los estados</option>
-              {estadoOptions.map((option) => (
+              {turnoEstadoOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -248,7 +243,9 @@ export function TurnosPage() {
                     <tr className="hover:bg-accent/50" key={turno.id}>
                       <td className="whitespace-nowrap px-4 py-3">
                         <p className="font-semibold text-foreground">{turno.hora}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{turno.fecha}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatDateDisplay(turno.fecha)}
+                        </p>
                         <div className="mt-1">
                           <DateBadge fecha={turno.fecha} />
                         </div>
@@ -277,79 +274,37 @@ export function TurnosPage() {
                         </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">
-                        <StatusBadge estado={turno.estado} />
+                        <div className="flex flex-col items-start gap-1.5">
+                          <StatusBadge estado={turno.estado} />
+                          {isTurnoVencidoPendienteDeCierre(turno) ? (
+                            <Badge variant="destructive">Pendiente de cierre</Badge>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex max-w-[360px] flex-wrap justify-end gap-2">
-                          <Button onClick={() => openEditForm(turno)} size="sm" variant="outline">
-                            <Pencil aria-hidden="true" className="h-4 w-4" />
-                            Editar
-                          </Button>
-
-                          {turno.estado === 'pendiente' ? (
-                            <Button
-                              disabled={cambiarEstado.isPending}
-                              onClick={() =>
-                                cambiarEstado.mutate({ id: turno.id, estado: 'en_atencion' })
-                              }
-                              size="sm"
-                              variant="outline"
-                            >
-                              <PhoneCall aria-hidden="true" className="h-4 w-4" />
-                              Llamar
-                            </Button>
-                          ) : null}
-
-                          {turno.estado === 'en_atencion' ? (
-                            <>
-                              <Button
-                                disabled={rellamarTurno.isPending}
-                                onClick={() => rellamarTurno.mutate(turno.id)}
-                                size="sm"
-                                variant="outline"
-                              >
-                                <Repeat2 aria-hidden="true" className="h-4 w-4" />
-                                Rellamar
-                              </Button>
-                              <Button
-                                disabled={cambiarEstado.isPending}
-                                onClick={() =>
-                                  cambiarEstado.mutate({ id: turno.id, estado: 'finalizado' })
-                                }
-                                size="sm"
-                                variant="secondary"
-                              >
-                                <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
-                                Finalizar
-                              </Button>
-                            </>
-                          ) : null}
-
-                          {!['finalizado', 'cancelado'].includes(turno.estado) ? (
-                            <Button onClick={() => cancelTurno(turno)} size="sm" variant="ghost">
-                              <XCircle aria-hidden="true" className="h-4 w-4" />
-                              Cancelar
-                            </Button>
-                          ) : null}
-
-                          <select
-                            aria-label="Cambiar estado"
-                            className="h-9 w-36 rounded-md border border-input bg-card px-2 text-xs outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
-                            onChange={(event) =>
-                              cambiarEstado.mutate({
-                                id: turno.id,
-                                estado: event.target.value as TurnoEstado,
-                              })
-                            }
-                            value={turno.estado}
-                          >
-                            {estadoOptions.map((option) => (
-                              <option key={option.value} value={option.value}>
-                                {option.label}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
+                        <TurnoActions
+                          isChanging={cambiarEstado.isPending}
+                          isRecalling={rellamarTurno.isPending}
+                          onAbsent={() =>
+                            cambiarEstado.mutate({ id: turno.id, estado: 'ausente' })
+                          }
+                          onCancel={() => cancelTurno(turno)}
+                          onEdit={() => openEditForm(turno)}
+                          onFinish={() =>
+                            cambiarEstado.mutate({ id: turno.id, estado: 'finalizado' })
+                          }
+                          onRecall={() => rellamarTurno.mutate(turno.id)}
+                          onReprogram={() =>
+                            cambiarEstado.mutate({ id: turno.id, estado: 'reprogramado' })
+                          }
+                          onStart={() =>
+                            cambiarEstado.mutate({ id: turno.id, estado: 'en_atencion' })
+                          }
+                          onStatusChange={(estado) =>
+                            cambiarEstado.mutate({ id: turno.id, estado })
+                          }
+                          turno={turno}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -548,7 +503,7 @@ function TurnoFormDialog({
               {turno ? (
                 <FormField error={errors.estado?.message} label="Estado">
                   <select className="form-input" {...register('estado')}>
-                    {estadoOptions.map((option) => (
+                    {turnoEstadoOptions.map((option) => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -602,6 +557,104 @@ function FormField({ label, error, children }: FormFieldProps) {
   )
 }
 
+type TurnoActionsProps = {
+  turno: TurnoDetallado
+  isChanging: boolean
+  isRecalling: boolean
+  onStart: () => void
+  onRecall: () => void
+  onFinish: () => void
+  onAbsent: () => void
+  onReprogram: () => void
+  onEdit: () => void
+  onCancel: () => void
+  onStatusChange: (estado: TurnoEstado) => void
+}
+
+function TurnoActions({
+  turno,
+  isChanging,
+  isRecalling,
+  onStart,
+  onRecall,
+  onFinish,
+  onAbsent,
+  onReprogram,
+  onEdit,
+  onCancel,
+  onStatusChange,
+}: TurnoActionsProps) {
+  const isExpiredOpen = isTurnoVencidoPendienteDeCierre(turno)
+
+  return (
+    <div className="flex max-w-[420px] flex-wrap justify-end gap-2">
+      {isExpiredOpen ? (
+        <>
+          <Button disabled={isChanging} onClick={onAbsent} size="sm" variant="outline">
+            <XCircle aria-hidden="true" className="h-4 w-4" />
+            Ausente
+          </Button>
+          <Button disabled={isChanging} onClick={onFinish} size="sm" variant="secondary">
+            <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
+            Finalizar
+          </Button>
+          <Button disabled={isChanging} onClick={onReprogram} size="sm" variant="outline">
+            <Repeat2 aria-hidden="true" className="h-4 w-4" />
+            Reprogramar
+          </Button>
+        </>
+      ) : (
+        <>
+          {turno.estado === 'pendiente' ? (
+            <Button disabled={isChanging} onClick={onStart} size="sm" variant="outline">
+              <PhoneCall aria-hidden="true" className="h-4 w-4" />
+              Llamar
+            </Button>
+          ) : null}
+
+          {turno.estado === 'en_atencion' ? (
+            <>
+              <Button disabled={isRecalling} onClick={onRecall} size="sm" variant="outline">
+                <Repeat2 aria-hidden="true" className="h-4 w-4" />
+                Rellamar
+              </Button>
+              <Button disabled={isChanging} onClick={onFinish} size="sm" variant="secondary">
+                <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
+                Finalizar
+              </Button>
+            </>
+          ) : null}
+
+          {!['finalizado', 'cancelado', 'ausente', 'reprogramado'].includes(turno.estado) ? (
+            <Button onClick={onCancel} size="sm" variant="ghost">
+              <XCircle aria-hidden="true" className="h-4 w-4" />
+              Cancelar
+            </Button>
+          ) : null}
+        </>
+      )}
+
+      <Button onClick={onEdit} size="sm" variant="outline">
+        <Pencil aria-hidden="true" className="h-4 w-4" />
+        Editar
+      </Button>
+
+      <select
+        aria-label="Cambiar estado"
+        className="h-9 w-36 rounded-md border border-input bg-card px-2 text-xs outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/15"
+        onChange={(event) => onStatusChange(event.target.value as TurnoEstado)}
+        value={turno.estado}
+      >
+        {turnoEstadoOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 function buildEmptyTurnoValues(
   pacientes: Paciente[],
   medicos: Medico[],
@@ -626,40 +679,6 @@ function mapTurnoToForm(turno: TurnoDetallado): TurnoFormValues {
     estado: turno.estado,
     notas: turno.notas ?? '',
   }
-}
-
-function parseTimeToMinutes(value: string) {
-  const [hours, minutes] = value.split(':').map(Number)
-
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return null
-  }
-
-  return hours * 60 + minutes
-}
-
-function formatMinutes(minutes: number) {
-  const hours = Math.floor(minutes / 60)
-  const remainingMinutes = minutes % 60
-
-  return `${hours.toString().padStart(2, '0')}:${remainingMinutes.toString().padStart(2, '0')}`
-}
-
-function generateTimeOptions(horarioInicio: string, horarioFin: string, slotDuracion: number) {
-  const start = parseTimeToMinutes(horarioInicio)
-  const end = parseTimeToMinutes(horarioFin)
-
-  if (start === null || end === null || start >= end) {
-    return [DEFAULT_APP_SETTINGS.horarioInicio]
-  }
-
-  const options: string[] = []
-
-  for (let current = start; current < end; current += slotDuracion) {
-    options.push(formatMinutes(current))
-  }
-
-  return options
 }
 
 function DateBadge({ fecha }: { fecha: string }) {

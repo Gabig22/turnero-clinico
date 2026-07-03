@@ -34,6 +34,8 @@ export type TurnoEstado =
   | 'finalizado'
   | 'cancelado'
   | 'pospuesto'
+  | 'ausente'
+  | 'reprogramado'
 
 export type Turno = {
   id: string
