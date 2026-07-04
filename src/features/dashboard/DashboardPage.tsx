@@ -1,6 +1,5 @@
 import {
   CalendarDays,
-  CalendarPlus,
   CheckCircle2,
   ClipboardList,
   Play,
@@ -52,9 +51,9 @@ export function DashboardPage() {
               <RotateCcw aria-hidden="true" className="h-4 w-4" />
               Reiniciar demo
             </Button>
-            <Link className={buttonVariants()} to="/turnos">
-              <CalendarPlus aria-hidden="true" className="h-4 w-4" />
-              Nuevo turno
+            <Link className={buttonVariants()} to="/turnos/calendario">
+              <CalendarDays aria-hidden="true" className="h-4 w-4" />
+              Calendario
             </Link>
           </>
         }

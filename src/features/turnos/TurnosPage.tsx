@@ -1,5 +1,6 @@
 import {
   CalendarClock,
+  CalendarDays,
   CheckCircle2,
   Clock3,
   MoreVertical,
@@ -13,14 +14,17 @@ import {
 } from 'lucide-react'
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
+import { Link } from 'react-router-dom'
 
 import { EmptyState } from '@/components/shared/EmptyState'
+import { DateInputDisplay } from '@/components/shared/DateInputDisplay'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { PosponerTurnoModal } from '@/components/turnos/PosponerTurnoModal'
 import { ReprogramarTurnoModal } from '@/components/turnos/ReprogramarTurnoModal'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button-variants'
 import { Card, CardContent } from '@/components/ui/card'
 import { useMedicos } from '@/hooks/useMedicos'
 import { usePacientes } from '@/hooks/usePacientes'
@@ -144,10 +148,16 @@ export function TurnosPage() {
     <div className="space-y-6">
       <PageHeader
         actions={
-          <Button onClick={openCreateForm}>
-            <Plus aria-hidden="true" className="h-4 w-4" />
-            Nuevo turno
-          </Button>
+          <>
+            <Link className={buttonVariants({ variant: 'outline' })} to="/turnos/calendario">
+              <CalendarDays aria-hidden="true" className="h-4 w-4" />
+              Calendario
+            </Link>
+            <Button onClick={openCreateForm}>
+              <Plus aria-hidden="true" className="h-4 w-4" />
+              Nuevo turno
+            </Button>
+          </>
         }
         description="Gestión completa de turnos sobre datos demo persistidos en el navegador."
         title="Turnos"
@@ -183,12 +193,7 @@ export function TurnosPage() {
               ))}
             </select>
 
-            <input
-              className="form-input"
-              onChange={(event) => setFecha(event.target.value)}
-              type="date"
-              value={fecha}
-            />
+            <DateInputDisplay onChange={setFecha} value={fecha} />
 
             <select
               className="form-input"
@@ -434,18 +439,20 @@ type TurnoFormDialogProps = {
   obrasSociales: string[]
   timeOptions: string[]
   slotDuracion: number
+  defaultFecha?: string
   isSaving: boolean
   onClose: () => void
   onSubmit: (values: TurnoFormValues) => Promise<void> | void
 }
 
-function TurnoFormDialog({
+export function TurnoFormDialog({
   turno,
   pacientes,
   medicos,
   obrasSociales,
   timeOptions,
   slotDuracion,
+  defaultFecha,
   isSaving,
   onClose,
   onSubmit,
@@ -489,19 +496,20 @@ function TurnoFormDialog({
   } = useForm<TurnoFormValues>({
     defaultValues: turno
       ? mapTurnoToForm(turno)
-      : buildEmptyTurnoValues(selectablePacientes, selectableMedicos, timeOptions[0]),
+      : buildEmptyTurnoValues(selectablePacientes, selectableMedicos, timeOptions[0], defaultFecha),
   })
   const selectedPacienteId = watch('paciente_id')
   const selectedMedicoId = watch('medico_id')
+  const selectedFecha = watch('fecha')
   const selectedMedico = selectableMedicos.find((medico) => medico.id === selectedMedicoId)
 
   useEffect(() => {
     reset(
       turno
         ? mapTurnoToForm(turno)
-        : buildEmptyTurnoValues(selectablePacientes, selectableMedicos, timeOptions[0]),
+        : buildEmptyTurnoValues(selectablePacientes, selectableMedicos, timeOptions[0], defaultFecha),
     )
-  }, [reset, selectableMedicos, selectablePacientes, timeOptions, turno])
+  }, [defaultFecha, reset, selectableMedicos, selectablePacientes, timeOptions, turno])
 
   useEffect(() => {
     const paciente = pacientes.find((item) => item.id === selectedPacienteId)
@@ -568,7 +576,12 @@ function TurnoFormDialog({
               </FormField>
 
               <FormField error={errors.fecha?.message} label="Fecha *">
-                <input className="form-input" type="date" {...register('fecha')} />
+                <input type="hidden" {...register('fecha')} />
+                <DateInputDisplay
+                  onChange={(value) => setValue('fecha', value)}
+                  required
+                  value={selectedFecha}
+                />
               </FormField>
 
               <FormField error={errors.hora?.message} label="Hora *">
@@ -677,7 +690,7 @@ type TurnoActionsProps = {
   onStatusChange: (estado: TurnoEstado) => void
 }
 
-function TurnoActions({
+export function TurnoActions({
   turno,
   isChanging,
   isMarkingAbsent,
@@ -936,9 +949,11 @@ function buildEmptyTurnoValues(
   pacientes: Paciente[],
   medicos: Medico[],
   suggestedStartTime?: string,
+  defaultFecha?: string,
 ): TurnoFormValues {
   return {
     ...emptyValues,
+    fecha: defaultFecha ?? emptyValues.fecha,
     hora: suggestedStartTime ?? DEFAULT_APP_SETTINGS.horarioInicio,
     paciente_id: pacientes[0]?.id ?? '',
     medico_id: medicos[0]?.id ?? '',

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 
 import { EmptyState } from '@/components/shared/EmptyState'
+import { DateInputDisplay } from '@/components/shared/DateInputDisplay'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -233,9 +234,13 @@ export function PacienteFormDialog({
     register,
     reset,
     setError,
+    setValue,
+    watch,
   } = useForm<PacienteFormValues>({
     defaultValues: paciente ? mapPacienteToForm(paciente) : buildEmptyPacienteValues(obrasSociales),
   })
+  const fechaNacimiento = watch('fecha_nacimiento')
+  const fechaAlta = watch('fecha_alta')
 
   useEffect(() => {
     reset(paciente ? mapPacienteToForm(paciente) : buildEmptyPacienteValues(obrasSociales))
@@ -298,10 +303,18 @@ export function PacienteFormDialog({
                 <input className="form-input" type="email" {...register('email')} />
               </FormField>
               <FormField error={errors.fecha_nacimiento?.message} label="Fecha de nacimiento">
-                <input className="form-input" type="date" {...register('fecha_nacimiento')} />
+                <input type="hidden" {...register('fecha_nacimiento')} />
+                <DateInputDisplay
+                  onChange={(value) => setValue('fecha_nacimiento', value)}
+                  value={fechaNacimiento}
+                />
               </FormField>
               <FormField error={errors.fecha_alta?.message} label="Fecha de alta">
-                <input className="form-input" type="date" {...register('fecha_alta')} />
+                <input type="hidden" {...register('fecha_alta')} />
+                <DateInputDisplay
+                  onChange={(value) => setValue('fecha_alta', value)}
+                  value={fechaAlta}
+                />
               </FormField>
             </div>
 

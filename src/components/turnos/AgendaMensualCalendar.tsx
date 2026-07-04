@@ -6,6 +6,7 @@ import FullCalendar from '@fullcalendar/react'
 import { format } from 'date-fns'
 import { useMemo } from 'react'
 
+import { formatConsultorioCompact } from '@/lib/utils/consultorio'
 import { cn } from '@/lib/utils/cn'
 import type { TurnoDetallado, TurnoEstado } from '@/types'
 
@@ -110,6 +111,7 @@ function buildEventTitle(turno: TurnoDetallado) {
   const paciente = turno.paciente
     ? `${turno.paciente.apellido}, ${turno.paciente.nombre}`
     : 'Paciente sin datos'
+  const consultorio = formatConsultorioCompact(turno.consultorio_cache ?? turno.medico?.consultorio)
 
-  return `${turno.hora.slice(0, 5)} · ${paciente}`
+  return [turno.hora.slice(0, 5), paciente, consultorio].filter(Boolean).join(' · ')
 }

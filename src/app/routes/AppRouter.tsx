@@ -12,6 +12,7 @@ import { MedicoAgendaPage } from '@/features/medicos/MedicoAgendaPage'
 import { MedicosPage } from '@/features/medicos/MedicosPage'
 import { PacientesPage } from '@/features/pacientes/PacientesPage'
 import { TurneroPage } from '@/features/turnero/TurneroPage'
+import { TurnosCalendarioPage } from '@/features/turnos/TurnosCalendarioPage'
 import { TurnosPage } from '@/features/turnos/TurnosPage'
 import { useDemoRole } from '@/hooks/useDemoRole'
 
@@ -34,6 +35,7 @@ export function AppRouter() {
           <Route element={<MedicoAgendaPage />} path="/medicos/:id" />
           <Route element={<AgendaMedicoMesPage />} path="/agenda/:medicoId" />
           <Route element={<TurnosPage />} path="/turnos" />
+          <Route element={<TurnosCalendarioPage />} path="/turnos/calendario" />
           <Route element={<PacientesPage />} path="/pacientes" />
           <Route element={<ConfiguracionPage />} path="/configuracion" />
         </Route>

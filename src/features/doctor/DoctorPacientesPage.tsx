@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 
 import { EmptyState } from '@/components/shared/EmptyState'
+import { DateInputDisplay } from '@/components/shared/DateInputDisplay'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
 import { Badge } from '@/components/ui/badge'
@@ -303,9 +304,12 @@ function NuevoTurnoPacienteDialog({
     register,
     reset,
     setError,
+    setValue,
+    watch,
   } = useForm<TurnoFormValues>({
     defaultValues: buildTurnoForPaciente(paciente, medico, timeOptions[0]),
   })
+  const selectedFecha = watch('fecha')
 
   useEffect(() => {
     reset(buildTurnoForPaciente(paciente, medico, timeOptions[0]))
@@ -356,7 +360,12 @@ function NuevoTurnoPacienteDialog({
                 <input className="form-input bg-muted/40" disabled value={medico.nombre} />
               </FormField>
               <FormField error={errors.fecha?.message} label="Fecha *">
-                <input className="form-input" type="date" {...register('fecha')} />
+                <input type="hidden" {...register('fecha')} />
+                <DateInputDisplay
+                  onChange={(value) => setValue('fecha', value)}
+                  required
+                  value={selectedFecha}
+                />
               </FormField>
               <FormField error={errors.hora?.message} label="Hora *">
                 <input

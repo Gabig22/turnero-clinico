@@ -2,6 +2,7 @@ import { CalendarClock } from 'lucide-react'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { DateInputDisplay } from '@/components/shared/DateInputDisplay'
 import { useAppSettings } from '@/hooks/useSettings'
 import { formatDateDisplay, isValidDateKey } from '@/lib/dates/displayDate'
 import { generateTimeOptions } from '@/lib/dates/timeSlots'
@@ -110,12 +111,7 @@ export function ReprogramarTurnoModal({
                 <span className="mb-1.5 block text-sm font-medium text-foreground">
                   Nueva fecha *
                 </span>
-                <input
-                  className="form-input"
-                  onChange={(event) => setFecha(event.target.value)}
-                  type="date"
-                  value={fecha}
-                />
+                <DateInputDisplay onChange={setFecha} required value={fecha} />
               </label>
 
               <label className="block">
