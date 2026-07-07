@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { toast } from 'sonner'
 
 import { queryKeys } from '@/hooks/queryKeys'
-import { mockApi } from '@/services/mock'
+import { dataApi } from '@/services/dataApi'
 
 export function useDashboard() {
   return useQuery({
@@ -11,8 +11,8 @@ export function useDashboard() {
     queryFn: async () => {
       const fechaHoy = format(new Date(), 'yyyy-MM-dd')
       const [medicos, turnosHoy] = await Promise.all([
-        mockApi.listMedicos(),
-        mockApi.listTurnos({ fecha: fechaHoy }),
+        dataApi.listMedicos(),
+        dataApi.listTurnos({ fecha: fechaHoy }),
       ])
       const pacientesUnicos = new Set(turnosHoy.map((turno) => turno.paciente_id))
 
@@ -37,7 +37,7 @@ export function useResetDemoData() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: mockApi.resetDemoData,
+    mutationFn: dataApi.resetDemoData,
     onSuccess: () => {
       toast.success('Demo reiniciada correctamente.')
       void queryClient.invalidateQueries()

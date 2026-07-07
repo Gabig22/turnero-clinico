@@ -6,6 +6,7 @@ const roleLabels = {
   admin_general: 'Administrador',
   supervisor: 'Supervisor',
   doctor: 'Médico',
+  secretaria_medico: 'Secretaría médica',
   public: 'Público',
 }
 

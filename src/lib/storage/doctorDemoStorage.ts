@@ -20,3 +20,12 @@ export function writeDoctorDemoSelectedId(medicoId: string) {
   window.localStorage.setItem(DOCTOR_DEMO_SELECTED_ID_KEY, medicoId)
   return medicoId
 }
+
+export function clearDoctorDemoSelectedId() {
+  if (!isBrowser()) {
+    return null
+  }
+
+  window.localStorage.removeItem(DOCTOR_DEMO_SELECTED_ID_KEY)
+  return null
+}

@@ -9,6 +9,7 @@ import {
   Plus,
   Repeat2,
   Search,
+  SlidersHorizontal,
   UserX,
   XCircle,
 } from 'lucide-react'
@@ -70,6 +71,7 @@ export function TurnosPage() {
   const [medicoId, setMedicoId] = useState('')
   const [obraSocial, setObraSocial] = useState('')
   const [consultorio, setConsultorio] = useState('')
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false)
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingTurno, setEditingTurno] = useState<TurnoDetallado | null>(null)
   const [reprogrammingTurno, setReprogrammingTurno] = useState<TurnoDetallado | null>(null)
@@ -123,6 +125,32 @@ export function TurnosPage() {
       ),
     [medicosQuery.data],
   )
+  const activeFiltersCount = useMemo(
+    () =>
+      [
+        search.trim(),
+        estado !== 'todos',
+        fecha !== todayKey(),
+        medicoId,
+        obraSocial,
+        consultorio,
+      ].filter(Boolean).length,
+    [consultorio, estado, fecha, medicoId, obraSocial, search],
+  )
+  const filtersSummary = useMemo(() => {
+    const selectedMedico = medicosQuery.data?.find((medico) => medico.id === medicoId)
+    const selectedEstado = turnoEstadoOptions.find((option) => option.value === estado)
+    const parts = [
+      fecha ? (fecha === todayKey() ? 'Hoy' : formatDateDisplay(fecha)) : 'Todos los días',
+      selectedEstado?.label,
+      selectedMedico?.nombre,
+      obraSocial,
+      consultorio ? formatConsultorioCompact(consultorio) : '',
+      search.trim() ? `Búsqueda: ${search.trim()}` : '',
+    ].filter(Boolean)
+
+    return parts.join(' · ')
+  }, [consultorio, estado, fecha, medicoId, medicosQuery.data, obraSocial, search])
 
   const openCreateForm = () => {
     setEditingTurno(null)
@@ -142,6 +170,15 @@ export function TurnosPage() {
     if (window.confirm(`¿Querés cancelar el turno de ${patientName}?`)) {
       cancelarTurno.mutate(turno.id)
     }
+  }
+
+  const resetFilters = () => {
+    setSearch('')
+    setEstado('todos')
+    setFecha(todayKey())
+    setMedicoId('')
+    setObraSocial('')
+    setConsultorio('')
   }
 
   return (
@@ -165,7 +202,31 @@ export function TurnosPage() {
 
       <Card>
         <CardContent className="space-y-4 p-4 md:p-5">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.6fr)_160px_160px_minmax(190px,1fr)_minmax(180px,1fr)_130px]">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                aria-expanded={isFiltersOpen}
+                onClick={() => setIsFiltersOpen((current) => !current)}
+                type="button"
+                variant="outline"
+              >
+                <SlidersHorizontal aria-hidden="true" className="h-4 w-4" />
+                Filtros
+                {activeFiltersCount ? <Badge variant="info">{activeFiltersCount}</Badge> : null}
+              </Button>
+              <span className="text-sm text-muted-foreground">{filtersSummary}</span>
+            </div>
+
+            {activeFiltersCount ? (
+              <Button onClick={resetFilters} size="sm" type="button" variant="ghost">
+                Limpiar filtros
+              </Button>
+            ) : null}
+          </div>
+
+          {isFiltersOpen ? (
+            <div className="rounded-lg border border-border bg-muted/25 p-3 shadow-sm">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-[minmax(260px,1.6fr)_160px_160px_minmax(190px,1fr)_minmax(180px,1fr)_130px]">
             <label className="relative block">
               <span className="sr-only">Buscar turnos</span>
               <Search
@@ -235,7 +296,7 @@ export function TurnosPage() {
             </select>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
             <Button onClick={() => setFecha(todayKey())} size="sm" variant="outline">
               Ver hoy
             </Button>
@@ -243,6 +304,9 @@ export function TurnosPage() {
               Ver todos los días
             </Button>
           </div>
+
+            </div>
+          ) : null}
 
           {turnosQuery.isLoading ? (
             <EmptyState title="Cargando turnos" />

@@ -7,15 +7,15 @@ import {
   DEFAULT_TURNERO_SETTINGS,
 } from '@/lib/storage/settingsStorage'
 import {
-  mockApi,
+  dataApi,
   type AppSettingsInput,
   type TurneroSettingsInput,
-} from '@/services/mock/mockApi'
+} from '@/services/dataApi'
 
 export function useAppSettings() {
   return useQuery({
     queryKey: queryKeys.settings.app,
-    queryFn: () => mockApi.getAppSettings(),
+    queryFn: () => dataApi.getAppSettings(),
     placeholderData: DEFAULT_APP_SETTINGS,
   })
 }
@@ -24,7 +24,7 @@ export function useUpdateAppSettings() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: AppSettingsInput) => mockApi.updateAppSettings(input),
+    mutationFn: (input: AppSettingsInput) => dataApi.updateAppSettings(input),
     onSuccess: () => {
       toast.success('Configuración guardada correctamente.')
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.app })
@@ -39,7 +39,7 @@ export function useResetAppSettings() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => mockApi.resetAppSettings(),
+    mutationFn: () => dataApi.resetAppSettings(),
     onSuccess: () => {
       toast.success('Configuración restaurada correctamente.')
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.app })
@@ -53,7 +53,7 @@ export function useResetAppSettings() {
 export function useTurneroSettings() {
   return useQuery({
     queryKey: queryKeys.settings.turnero,
-    queryFn: () => mockApi.getTurneroSettings(),
+    queryFn: () => dataApi.getTurneroSettings(),
     placeholderData: DEFAULT_TURNERO_SETTINGS,
   })
 }
@@ -62,7 +62,7 @@ export function useUpdateTurneroSettings() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: TurneroSettingsInput) => mockApi.updateTurneroSettings(input),
+    mutationFn: (input: TurneroSettingsInput) => dataApi.updateTurneroSettings(input),
     onSuccess: () => {
       toast.success('Configuración del turnero guardada.')
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.turnero })
@@ -78,7 +78,7 @@ export function useResetTurneroSettings() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: () => mockApi.resetTurneroSettings(),
+    mutationFn: () => dataApi.resetTurneroSettings(),
     onSuccess: () => {
       toast.success('Turnero restaurado correctamente.')
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings.turnero })

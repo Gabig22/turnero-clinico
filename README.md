@@ -1,32 +1,118 @@
-# React + TypeScript + Vite
+# Turnero Clinico
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Web app React + Vite + TypeScript para gestion de turnos clinicos, agenda medica, portal medico y turnero publico de sala de espera.
 
-Currently, two official plugins are available:
+La version actual funciona en modo demo/mock usando `localStorage`. La migracion a Supabase/Auth esta planificada, pero todavia no esta implementada.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- React
+- Vite
+- TypeScript
+- TanStack Query
+- React Hook Form
+- Zod
+- Tailwind CSS
+- FullCalendar
+- lucide-react
+- sonner
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Requisitos
 
-## Expanding the Oxlint configuration
+- Node.js compatible con el proyecto
+- npm
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Configuracion local
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+Crear un `.env` a partir de `.env.example` si hace falta:
+
+```env
+VITE_APP_DATA_MODE=mock
+VITE_APP_AUTH_MODE=mock
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Si no se define `VITE_APP_DATA_MODE` ni `VITE_APP_AUTH_MODE`, la app usa `mock` por defecto.
+
+Para probar Auth real sin migrar datos:
+
+```env
+VITE_APP_DATA_MODE=mock
+VITE_APP_AUTH_MODE=supabase
+VITE_SUPABASE_URL=https://TU_PROYECTO.supabase.co
+VITE_SUPABASE_ANON_KEY=TU_ANON_KEY
+```
+
+No usar todavia:
+
+```env
+VITE_APP_DATA_MODE=supabase
+```
+
+El modo `supabase` esta reservado para las fases siguientes. Por ahora existe un stub tipado que falla con un mensaje claro si se activa antes de implementar Supabase.
+
+## Comandos
+
+```bash
+npm install
+npm run dev
+npm run lint
+npm run build
+npm run preview
+```
+
+## Rutas principales
+
+- `/inicio`
+- `/medicos`
+- `/turnos`
+- `/turnos/calendario`
+- `/pacientes`
+- `/configuracion`
+- `/turnero`
+- `/doctor`
+- `/doctor/agenda`
+- `/doctor/pacientes`
+
+## Persistencia demo
+
+El modo mock guarda datos en `localStorage`:
+
+- `turnero_mock_v1`
+- `app_settings`
+- `turnero_settings`
+- `doctor_demo_selected_id`
+- `turnero_backup_metadata_v1`
+
+Desde `/configuracion` se puede:
+
+- reiniciar demo
+- exportar backup JSON
+- importar backup JSON
+- exportar CSV de turnos, pacientes y medicos
+- ajustar configuracion operativa
+
+## Migracion a Supabase
+
+Documentacion de preparacion:
+
+- [Plan de migracion](docs/SUPABASE_MIGRATION_PLAN.md)
+- [Borrador de schema SQL](docs/SUPABASE_SCHEMA_DRAFT.sql)
+- [Setup Auth minimo](docs/SUPABASE_AUTH_SETUP.md)
+- [QA roles y guards](docs/SUPABASE_ROLES_GUARDS_QA.md)
+- [Checklist QA modo mock](docs/MOCK_DATA_MODE_QA_CHECKLIST.md)
+
+Arquitectura preparada:
+
+- `mockApi`: implementacion actual demo/localStorage.
+- `supabaseApi`: stub tipado para fases futuras.
+- `dataApi`: capa intermedia que elige segun `VITE_APP_DATA_MODE`.
+
+## Deploy en Vercel
+
+El repo incluye `vercel.json` con rewrites para React Router SPA.
+
+Configuracion recomendada:
+
+- Framework Preset: Vite
+- Build Command: `npm run build`
+- Output Directory: `dist`

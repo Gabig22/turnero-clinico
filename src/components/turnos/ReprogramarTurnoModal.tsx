@@ -7,7 +7,7 @@ import { useAppSettings } from '@/hooks/useSettings'
 import { formatDateDisplay, isValidDateKey } from '@/lib/dates/displayDate'
 import { generateTimeOptions } from '@/lib/dates/timeSlots'
 import { DEFAULT_APP_SETTINGS } from '@/lib/storage/settingsStorage'
-import type { ReprogramarTurnoInput } from '@/services/mock/mockApi'
+import type { ReprogramarTurnoInput } from '@/services/dataApi'
 import type { TurnoDetallado } from '@/types'
 
 type ReprogramarTurnoModalProps = {

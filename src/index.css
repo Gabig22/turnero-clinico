@@ -81,6 +81,66 @@ a {
   box-shadow: 0 0 0 2px rgb(15 118 110 / 0.15);
 }
 
+.login-turnero-heartbeat {
+  animation: login-turnero-heartbeat 2.15s ease-in-out infinite;
+  box-shadow: 0 0 0 0 rgb(15 118 110 / 0.18);
+  transform-origin: center;
+}
+
+.login-turnero-heartbeat::after {
+  animation: login-turnero-ring 2.15s ease-in-out infinite;
+  border: 1px solid rgb(15 118 110 / 0.18);
+  border-radius: 1.125rem;
+  content: "";
+  inset: -0.35rem;
+  pointer-events: none;
+  position: absolute;
+}
+
+@keyframes login-turnero-heartbeat {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(15 118 110 / 0.16);
+    transform: scale(1);
+  }
+
+  12% {
+    box-shadow: 0 0 0 0.35rem rgb(15 118 110 / 0.08);
+    transform: scale(1.08);
+  }
+
+  24% {
+    box-shadow: 0 0 0 0.6rem rgb(15 118 110 / 0);
+    transform: scale(1);
+  }
+
+  38% {
+    transform: scale(1.05);
+  }
+
+  52% {
+    transform: scale(1);
+  }
+}
+
+@keyframes login-turnero-ring {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.95);
+  }
+
+  24% {
+    opacity: 0.55;
+    transform: scale(1.12);
+  }
+
+  52% {
+    opacity: 0.2;
+    transform: scale(1);
+  }
+}
+
 .agenda-calendar {
   --fc-border-color: var(--color-border);
   --fc-neutral-bg-color: var(--color-muted);
@@ -295,6 +355,8 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .login-turnero-heartbeat,
+  .login-turnero-heartbeat::after,
   .turnero-next-pulse,
   .turnero-next-pulse > td {
     animation: none;

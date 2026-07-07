@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { queryKeys } from '@/hooks/queryKeys'
-import { mockApi, type MedicoFilters, type MedicoInput } from '@/services/mock/mockApi'
+import { dataApi, type MedicoFilters, type MedicoInput } from '@/services/dataApi'
 
 function invalidateMedicoQueries(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: queryKeys.medicos.all })
@@ -14,7 +14,7 @@ function invalidateMedicoQueries(queryClient: ReturnType<typeof useQueryClient>)
 export function useMedicos(filters: MedicoFilters = {}) {
   return useQuery({
     queryKey: [...queryKeys.medicos.all, filters],
-    queryFn: () => mockApi.listMedicos(filters),
+    queryFn: () => dataApi.listMedicos(filters),
   })
 }
 
@@ -22,7 +22,7 @@ export function useMedico(id: string) {
   return useQuery({
     enabled: Boolean(id),
     queryKey: queryKeys.medicos.detail(id),
-    queryFn: () => mockApi.getMedicoById(id),
+    queryFn: () => dataApi.getMedicoById(id),
   })
 }
 
@@ -30,7 +30,7 @@ export function useCrearMedico() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: MedicoInput) => mockApi.createMedico(input),
+    mutationFn: (input: MedicoInput) => dataApi.createMedico(input),
     onSuccess: () => {
       toast.success('Médico creado correctamente.')
       invalidateMedicoQueries(queryClient)
@@ -46,7 +46,7 @@ export function useActualizarMedico() {
 
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Partial<MedicoInput> }) =>
-      mockApi.updateMedico(id, input),
+      dataApi.updateMedico(id, input),
     onSuccess: () => {
       toast.success('Médico actualizado correctamente.')
       invalidateMedicoQueries(queryClient)
@@ -61,7 +61,7 @@ export function useToggleMedico() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => mockApi.toggleMedico(id),
+    mutationFn: (id: string) => dataApi.toggleMedico(id),
     onSuccess: (medico) => {
       toast.success(medico.activo ? 'Médico activado.' : 'Médico desactivado.')
       invalidateMedicoQueries(queryClient)

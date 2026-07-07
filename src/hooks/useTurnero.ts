@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 
 import { queryKeys } from '@/hooks/queryKeys'
-import { mockApi } from '@/services/mock'
+import { dataApi } from '@/services/dataApi'
 
 export function useTurnero() {
   return useQuery({
@@ -10,8 +10,8 @@ export function useTurnero() {
     queryFn: async () => {
       const fechaHoy = format(new Date(), 'yyyy-MM-dd')
       const [turnosHoy, eventos] = await Promise.all([
-        mockApi.listTurnos({ fecha: fechaHoy }),
-        mockApi.listTurneroEvents(),
+        dataApi.listTurnos({ fecha: fechaHoy }),
+        dataApi.listTurneroEvents(),
       ])
 
       return {

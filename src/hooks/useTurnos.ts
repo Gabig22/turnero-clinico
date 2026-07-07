@@ -4,13 +4,13 @@ import { toast } from 'sonner'
 
 import { queryKeys } from '@/hooks/queryKeys'
 import {
-  mockApi,
+  dataApi,
   type PosponerTurnoInput,
   type ReprogramarTurnoInput,
   type TurnoConflictInput,
   type TurnoFilters,
   type TurnoInput,
-} from '@/services/mock/mockApi'
+} from '@/services/dataApi'
 import type { TurnoEstado } from '@/types'
 
 function invalidateClinicalQueries(queryClient: ReturnType<typeof useQueryClient>) {
@@ -23,7 +23,7 @@ function invalidateClinicalQueries(queryClient: ReturnType<typeof useQueryClient
 export function useTurnos(filters: TurnoFilters = {}) {
   return useQuery({
     queryKey: queryKeys.turnos.list(filters),
-    queryFn: () => mockApi.listTurnos(filters),
+    queryFn: () => dataApi.listTurnos(filters),
   })
 }
 
@@ -36,7 +36,7 @@ export function useTurnosMedico(medicoId: string, fecha: string) {
   return useQuery({
     enabled: Boolean(medicoId && fecha),
     queryKey: queryKeys.turnos.list(filters),
-    queryFn: () => mockApi.listTurnos(filters),
+    queryFn: () => dataApi.listTurnos(filters),
     initialData: [],
   })
 }
@@ -49,14 +49,14 @@ export function useTurnosDeMedico(medicoId: string) {
   return useQuery({
     enabled: Boolean(medicoId),
     queryKey: queryKeys.turnos.list(filters),
-    queryFn: () => mockApi.listTurnos(filters),
+    queryFn: () => dataApi.listTurnos(filters),
     initialData: [],
   })
 }
 
 export function useConfirmarConflictoTurno() {
   return useCallback(async (input: TurnoConflictInput) => {
-    const conflict = await mockApi.findTurnoConflict(input)
+    const conflict = await dataApi.findTurnoConflict(input)
 
     if (!conflict) {
       return true
@@ -72,7 +72,7 @@ export function useCrearTurno() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: TurnoInput) => mockApi.createTurno(input),
+    mutationFn: (input: TurnoInput) => dataApi.createTurno(input),
     onSuccess: () => {
       toast.success('Turno creado correctamente.')
       invalidateClinicalQueries(queryClient)
@@ -88,7 +88,7 @@ export function useActualizarTurno() {
 
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Partial<TurnoInput> }) =>
-      mockApi.updateTurno(id, input),
+      dataApi.updateTurno(id, input),
     onSuccess: () => {
       toast.success('Turno actualizado correctamente.')
       invalidateClinicalQueries(queryClient)
@@ -104,7 +104,7 @@ export function useCambiarEstadoTurno() {
 
   return useMutation({
     mutationFn: ({ id, estado }: { id: string; estado: TurnoEstado }) =>
-      mockApi.cambiarEstadoTurno(id, estado),
+      dataApi.cambiarEstadoTurno(id, estado),
     onSuccess: (turno) => {
       if (turno.estado === 'en_atencion') {
         toast.success('Paciente llamado correctamente.')
@@ -130,7 +130,7 @@ export function useCancelarTurno() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => mockApi.cancelarTurno(id),
+    mutationFn: (id: string) => dataApi.cancelarTurno(id),
     onSuccess: () => {
       toast.success('Turno cancelado.')
       invalidateClinicalQueries(queryClient)
@@ -145,7 +145,7 @@ export function useMarcarAusenteTurno() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => mockApi.marcarAusenteTurno(id),
+    mutationFn: (id: string) => dataApi.marcarAusenteTurno(id),
     onSuccess: () => {
       toast.success('Turno marcado como ausente.')
       invalidateClinicalQueries(queryClient)
@@ -161,7 +161,7 @@ export function useReprogramarTurno() {
 
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: ReprogramarTurnoInput }) =>
-      mockApi.reprogramarTurno(id, input),
+      dataApi.reprogramarTurno(id, input),
     onSuccess: () => {
       toast.success('Turno reprogramado correctamente.')
       invalidateClinicalQueries(queryClient)
@@ -177,7 +177,7 @@ export function usePosponerTurno() {
 
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: PosponerTurnoInput }) =>
-      mockApi.posponerTurno(id, input),
+      dataApi.posponerTurno(id, input),
     onSuccess: () => {
       toast.success('Turno pospuesto correctamente.')
       invalidateClinicalQueries(queryClient)
@@ -192,7 +192,7 @@ export function useSiguienteTurno() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (medicoId: string) => mockApi.siguienteTurno(medicoId),
+    mutationFn: (medicoId: string) => dataApi.siguienteTurno(medicoId),
     onSuccess: ({ turnoLlamado }) => {
       if (turnoLlamado) {
         toast.success('Paciente llamado correctamente.')
@@ -212,7 +212,7 @@ export function useRellamarTurno() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (turnoId: string) => mockApi.rellamarTurno(turnoId),
+    mutationFn: (turnoId: string) => dataApi.rellamarTurno(turnoId),
     onSuccess: () => {
       toast.success('Paciente rellamado.')
       invalidateClinicalQueries(queryClient)

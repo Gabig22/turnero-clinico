@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { queryKeys } from '@/hooks/queryKeys'
-import { mockApi, type PacienteFilters, type PacienteInput } from '@/services/mock/mockApi'
+import { dataApi, type PacienteFilters, type PacienteInput } from '@/services/dataApi'
 
 function invalidatePacienteQueries(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: queryKeys.pacientes.all })
@@ -14,7 +14,7 @@ function invalidatePacienteQueries(queryClient: ReturnType<typeof useQueryClient
 export function usePacientes(filters: PacienteFilters = {}) {
   return useQuery({
     queryKey: queryKeys.pacientes.list(filters),
-    queryFn: () => mockApi.listPacientes(filters),
+    queryFn: () => dataApi.listPacientes(filters),
   })
 }
 
@@ -22,7 +22,7 @@ export function useCrearPaciente() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (input: PacienteInput) => mockApi.createPaciente(input),
+    mutationFn: (input: PacienteInput) => dataApi.createPaciente(input),
     onSuccess: () => {
       toast.success('Paciente creado correctamente.')
       invalidatePacienteQueries(queryClient)
@@ -38,7 +38,7 @@ export function useActualizarPaciente() {
 
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: Partial<PacienteInput> }) =>
-      mockApi.updatePaciente(id, input),
+      dataApi.updatePaciente(id, input),
     onSuccess: () => {
       toast.success('Paciente actualizado correctamente.')
       invalidatePacienteQueries(queryClient)
@@ -53,7 +53,7 @@ export function useTogglePaciente() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (id: string) => mockApi.togglePaciente(id),
+    mutationFn: (id: string) => dataApi.togglePaciente(id),
     onSuccess: (paciente) => {
       toast.success(paciente.activo ? 'Paciente activado.' : 'Paciente desactivado.')
       invalidatePacienteQueries(queryClient)

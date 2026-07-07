@@ -1,7 +1,7 @@
 import { Outlet } from 'react-router-dom'
 
 import { AppSidebar, type SidebarSection } from '@/components/layout/AppSidebar'
-import { DemoBadge } from '@/components/shared/DemoBadge'
+import { AuthStatus } from '@/components/shared/AuthStatus'
 import { formatFechaLarga } from '@/lib/dates/formatters'
 
 type MainLayoutProps = {
@@ -21,7 +21,7 @@ export function MainLayout({ section }: MainLayoutProps) {
               </p>
               <p className="mt-1 text-sm text-muted-foreground first-letter:uppercase">{formatFechaLarga()}</p>
             </div>
-            <DemoBadge />
+            <AuthStatus />
           </div>
           <AppSidebar compact section={section} />
         </header>

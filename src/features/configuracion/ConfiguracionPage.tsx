@@ -1,5 +1,17 @@
-import { Bell, Building2, Clock3, RotateCcw, Settings, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import {
+  Bell,
+  Building2,
+  Clock3,
+  Database,
+  Download,
+  FileSpreadsheet,
+  RotateCcw,
+  Settings,
+  Trash2,
+  Upload,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 
@@ -24,15 +36,19 @@ import {
   useUpdateTurneroSettings,
 } from '@/hooks/useSettings'
 import { useTurnos } from '@/hooks/useTurnos'
+import { todayISO } from '@/lib/dates/displayDate'
+import { downloadCsv, downloadJson } from '@/lib/export/download'
 import {
   DEFAULT_APP_SETTINGS,
   DEFAULT_TURNERO_SETTINGS,
 } from '@/lib/storage/settingsStorage'
 import { appSettingsSchema, type AppSettingsFormValues } from '@/lib/validators/schemas'
+import { backupApi, parseBackupFile, validateBackupShape } from '@/services/mock'
 
 const slotOptions = [15, 20, 30, 40] as const
 
 export function ConfiguracionPage() {
+  const queryClient = useQueryClient()
   const appSettingsQuery = useAppSettings()
   const turneroSettingsQuery = useTurneroSettings()
   const pacientesQuery = usePacientes()
@@ -45,6 +61,10 @@ export function ConfiguracionPage() {
   const appSettings = appSettingsQuery.data ?? DEFAULT_APP_SETTINGS
   const turneroSettings = turneroSettingsQuery.data ?? DEFAULT_TURNERO_SETTINGS
   const [newObraSocial, setNewObraSocial] = useState('')
+  const [, setBackupStatusTick] = useState(0)
+  const [isImportingBackup, setIsImportingBackup] = useState(false)
+  const importInputRef = useRef<HTMLInputElement>(null)
+  const backupStatus = backupApi.getDemoDataStatus()
   const obrasSocialesEnUso = useMemo(() => {
     const used = new Set<string>()
 
@@ -143,8 +163,14 @@ export function ConfiguracionPage() {
   }
 
   const resetDemo = () => {
-    if (window.confirm('¿Querés reiniciar los datos demo? Se regenerarán médicos, pacientes y turnos.')) {
-      resetDemoData.mutate()
+    const confirmed = window.confirm(
+      'Esto eliminará los datos demo actuales y regenerará médicos, pacientes y turnos de prueba. La configuración se mantendrá salvo que también restaures configuración.',
+    )
+
+    if (confirmed) {
+      resetDemoData.mutate(undefined, {
+        onSuccess: () => setBackupStatusTick((tick) => tick + 1),
+      })
     }
   }
 
@@ -153,6 +179,63 @@ export function ConfiguracionPage() {
       resetAppSettings.mutate()
       resetTurneroSettings.mutate()
     }
+  }
+
+  const refreshBackupStatus = () => {
+    setBackupStatusTick((tick) => tick + 1)
+  }
+
+  const exportBackup = () => {
+    downloadJson(backupApi.getBackupFilename(), backupApi.createBackupPayload())
+    toast.success('Backup exportado correctamente.')
+    refreshBackupStatus()
+  }
+
+  const importBackup = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+
+    if (!file) {
+      return
+    }
+
+    setIsImportingBackup(true)
+
+    try {
+      const parsedBackup = await parseBackupFile(file)
+      const backup = validateBackupShape(parsedBackup)
+      const confirmed = window.confirm(
+        'Esto reemplazará los datos demo actuales. ¿Querés continuar?',
+      )
+
+      if (!confirmed) {
+        return
+      }
+
+      backupApi.importBackup(backup)
+      await queryClient.invalidateQueries()
+      toast.success('Backup importado correctamente.')
+      refreshBackupStatus()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'No se pudo importar el backup.')
+    } finally {
+      setIsImportingBackup(false)
+      event.target.value = ''
+    }
+  }
+
+  const exportTurnosCsv = () => {
+    downloadCsv(`turnero-clinico-turnos-${todayISO()}.csv`, backupApi.getTurnosCsvRows())
+    toast.success('Turnos exportados correctamente.')
+  }
+
+  const exportPacientesCsv = () => {
+    downloadCsv(`turnero-clinico-pacientes-${todayISO()}.csv`, backupApi.getPacientesCsvRows())
+    toast.success('Pacientes exportados correctamente.')
+  }
+
+  const exportMedicosCsv = () => {
+    downloadCsv(`turnero-clinico-medicos-${todayISO()}.csv`, backupApi.getMedicosCsvRows())
+    toast.success('Médicos exportados correctamente.')
   }
 
   return (
@@ -303,6 +386,95 @@ export function ConfiguracionPage() {
 
       <Card>
         <CardHeader>
+          <SectionTitle icon={Database} title="Backup y exportación" />
+          <CardDescription>
+            Respaldo completo e informes CSV de los datos demo guardados en este navegador.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <input
+            accept=".json,application/json"
+            className="hidden"
+            onChange={importBackup}
+            ref={importInputRef}
+            type="file"
+          />
+
+          <div className="grid gap-3 xl:grid-cols-[0.9fr_1.1fr]">
+            <ActionPanel
+              description="Conteo actual y tamaño estimado de la persistencia local."
+              title="Estado de datos demo"
+            >
+              <div className="grid gap-2 sm:grid-cols-2">
+                <DataStatusItem label="Médicos" value={backupStatus.medicos} />
+                <DataStatusItem label="Pacientes" value={backupStatus.pacientes} />
+                <DataStatusItem label="Turnos" value={backupStatus.turnos} />
+                <DataStatusItem label="Eventos turnero" value={backupStatus.turneroEvents} />
+                <DataStatusItem
+                  label="Última importación"
+                  value={formatDateTime(backupStatus.lastImportedAt)}
+                />
+                <DataStatusItem
+                  label="Tamaño local"
+                  value={formatStorageSize(backupStatus.storageBytes)}
+                />
+              </div>
+              <div className="mt-3">
+                <Button onClick={refreshBackupStatus} type="button" variant="outline">
+                  <Database aria-hidden="true" className="h-4 w-4" />
+                  Ver estado de datos demo
+                </Button>
+              </div>
+            </ActionPanel>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <ActionPanel
+                description="Incluye médicos, pacientes, turnos, historial de llamados, configuración y médico demo seleccionado."
+                title="Backup completo"
+              >
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={exportBackup} type="button">
+                    <Download aria-hidden="true" className="h-4 w-4" />
+                    Exportar backup
+                  </Button>
+                  <Button
+                    disabled={isImportingBackup}
+                    onClick={() => importInputRef.current?.click()}
+                    type="button"
+                    variant="outline"
+                  >
+                    <Upload aria-hidden="true" className="h-4 w-4" />
+                    {isImportingBackup ? 'Importando...' : 'Importar backup'}
+                  </Button>
+                </div>
+              </ActionPanel>
+
+              <ActionPanel
+                description="Descarga planillas separadas para revisión externa o auditoría simple."
+                title="Exportar CSV"
+              >
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={exportTurnosCsv} type="button" variant="outline">
+                    <FileSpreadsheet aria-hidden="true" className="h-4 w-4" />
+                    Turnos CSV
+                  </Button>
+                  <Button onClick={exportPacientesCsv} type="button" variant="outline">
+                    <FileSpreadsheet aria-hidden="true" className="h-4 w-4" />
+                    Pacientes CSV
+                  </Button>
+                  <Button onClick={exportMedicosCsv} type="button" variant="outline">
+                    <FileSpreadsheet aria-hidden="true" className="h-4 w-4" />
+                    Médicos CSV
+                  </Button>
+                </div>
+              </ActionPanel>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <SectionTitle icon={Settings} title="Demo" />
           <CardDescription>
             Acciones administrativas para volver a un estado demo conocido.
@@ -400,6 +572,51 @@ function ToggleRow({ label, description, checked, onChange }: ToggleRowProps) {
       />
     </label>
   )
+}
+
+type DataStatusItemProps = {
+  label: string
+  value: ReactNode
+}
+
+function DataStatusItem({ label, value }: DataStatusItemProps) {
+  return (
+    <div className="rounded-lg border border-border bg-background px-3 py-2">
+      <span className="block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </span>
+      <span className="mt-1 block text-sm font-semibold text-foreground">{value}</span>
+    </div>
+  )
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) {
+    return 'Sin importaciones'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Sin datos'
+  }
+
+  return new Intl.DateTimeFormat('es-AR', {
+    dateStyle: 'short',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function formatStorageSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
 type ActionPanelProps = {

@@ -3,7 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { formatDateDisplay } from '@/lib/dates/displayDate'
-import type { PosponerTurnoInput } from '@/services/mock/mockApi'
+import type { PosponerTurnoInput } from '@/services/dataApi'
 import type { TurnoDetallado } from '@/types'
 
 type PosponerTurnoModalProps = {
