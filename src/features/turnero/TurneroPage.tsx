@@ -1,7 +1,8 @@
 import {
   ArrowLeft,
+  Building2,
+  Clock3,
   Maximize2,
-  Minimize2,
   Volume2,
   VolumeX,
 } from 'lucide-react'
@@ -113,8 +114,8 @@ export function TurneroPage() {
   return (
     <div
       className={cn(
-        'min-h-screen bg-background text-foreground',
-        highContrastEnabled && 'turnero-high-contrast',
+        'min-h-screen text-foreground',
+        highContrastEnabled ? 'turnero-high-contrast bg-background' : 'bg-[#f7fafb]',
       )}
     >
       <TurneroControls
@@ -126,10 +127,13 @@ export function TurneroPage() {
 
       <div className="mx-auto flex min-h-screen w-[min(92vw,1800px)] flex-col py-4">
         <header className="mx-auto w-full pt-20 text-center sm:pt-14 lg:pt-5">
-          <h1 className="font-bold tracking-normal text-foreground text-[clamp(2.6rem,4vw,5rem)]">
+          <p className="mb-2 text-xs font-bold uppercase tracking-[0.28em] text-primary/80">
+            Sala de espera
+          </p>
+          <h1 className="font-black tracking-normal text-foreground text-[clamp(2.8rem,4.2vw,5.4rem)]">
             Turnero Digital
           </h1>
-          <p className="mt-2 text-[clamp(1rem,1.25vw,1.35rem)] text-muted-foreground first-letter:uppercase">
+          <p className="mt-2 text-[clamp(1rem,1.15vw,1.28rem)] font-medium text-muted-foreground first-letter:uppercase">
             {formatFechaLarga()}
           </p>
         </header>
@@ -161,6 +165,10 @@ function TurneroControls({
   toggleSound,
   toggleFullscreen,
 }: TurneroControlsProps) {
+  if (isFullscreen) {
+    return null
+  }
+
   return (
     <div className="fixed left-4 top-4 z-50 flex max-w-[calc(100vw-2rem)] flex-wrap gap-2">
       <Link
@@ -179,12 +187,8 @@ function TurneroControls({
         type="button"
         variant="outline"
       >
-        {isFullscreen ? (
-          <Minimize2 aria-hidden="true" className="h-4 w-4" />
-        ) : (
-          <Maximize2 aria-hidden="true" className="h-4 w-4" />
-        )}
-        {isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+        <Maximize2 aria-hidden="true" className="h-4 w-4" />
+        Pantalla completa
       </Button>
       <Button
         className="h-9 border-border/70 bg-card/70 px-3 text-xs text-muted-foreground shadow-none backdrop-blur hover:bg-card hover:text-foreground"
@@ -220,52 +224,75 @@ function AtencionSection({ turnos }: { turnos: TurnoDetallado[] }) {
 function AtencionHero({ compact = false, turno }: { compact?: boolean; turno: TurnoDetallado }) {
   return (
     <section
-      className="overflow-hidden rounded-xl border border-primary/25 bg-primary-soft/70 shadow-clinical"
+      className={cn(
+        'overflow-hidden rounded-2xl border border-primary/20 bg-card shadow-clinical',
+        !compact && 'turnero-attention-hero',
+      )}
     >
-      <div className="border-b border-primary/20 bg-card/75 px-[clamp(1.25rem,2vw,2.5rem)] py-[clamp(0.55rem,0.8vw,0.9rem)] text-center">
-        <p className="truncate font-extrabold uppercase tracking-wide text-primary text-[clamp(1.2rem,2vw,2.4rem)]">
-          {getConsultorioHero(turno)}
-        </p>
-      </div>
       <div
         className={cn(
-          'grid gap-5 md:items-center',
+          'grid gap-[clamp(1rem,1.8vw,2rem)] md:items-center',
           compact
             ? 'p-[clamp(1rem,1.6vw,1.75rem)]'
-            : 'p-[clamp(1.25rem,2vw,2.5rem)] md:grid-cols-[1fr_clamp(150px,12vw,230px)]',
+            : 'p-[clamp(1.35rem,2.3vw,2.8rem)] md:grid-cols-[minmax(0,1fr)_clamp(190px,17vw,300px)]',
         )}
       >
         <div className="min-w-0 text-center md:text-left">
-          <div className="flex flex-wrap justify-center gap-2 md:justify-start">
+          <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+            <ConsultorioPill turno={turno} />
             <TurneroStatusBadge estado={turno.estado} />
             {turno.llamado_count ? <Badge variant="info">Llamado #{turno.llamado_count}</Badge> : null}
             {turno.obra_social ? <Badge variant="muted">{turno.obra_social}</Badge> : null}
           </div>
           <p
             className={cn(
-              'mt-3 truncate font-bold leading-tight text-foreground',
+              'mt-[clamp(1rem,1.5vw,1.8rem)] truncate font-black leading-[0.95] text-foreground',
               compact
                 ? 'text-[clamp(2.2rem,3vw,4rem)]'
-                : 'text-[clamp(3rem,5vw,6.5rem)]',
+                : 'text-[clamp(3.2rem,5.4vw,7rem)]',
             )}
           >
             {getPacienteDisplay(turno)}
           </p>
-          <p className="mt-2 font-medium text-muted-foreground text-[clamp(1.15rem,1.6vw,2rem)]">
-            {turno.medico?.nombre ?? 'Médico sin datos'}
-          </p>
+          {compact ? (
+            <p className="mt-3 text-lg font-bold text-primary">{formatTurnoTime(turno.hora)}</p>
+          ) : null}
         </div>
 
-        {!compact ? (
-          <div className="rounded-lg border border-border bg-card/80 px-[clamp(1rem,1.4vw,1.6rem)] py-[clamp(1rem,1.5vw,1.8rem)] text-center">
-            <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Hora</p>
-            <p className="mt-2 font-bold leading-none text-foreground text-[clamp(2.8rem,4vw,5.4rem)]">
-              {formatTurnoTime(turno.hora)}
-            </p>
-          </div>
-        ) : null}
+        {!compact ? <HoraLlamado hora={turno.hora} /> : null}
       </div>
     </section>
+  )
+}
+
+function ConsultorioPill({ turno }: { turno: TurnoDetallado }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-2xl border border-primary/20 bg-primary-soft/80 px-3.5 py-2 text-primary">
+      <Building2 aria-hidden="true" className="h-4 w-4" />
+      <span className="text-sm font-bold tracking-normal">Consultorio</span>
+      <span className="rounded-full bg-primary px-2.5 py-0.5 text-sm font-black text-primary-foreground">
+        {getConsultorioDisplay(turno)}
+      </span>
+    </div>
+  )
+}
+
+function HoraLlamado({ hora }: { hora: string }) {
+  return (
+    <div className="flex justify-center md:justify-end">
+      <div className="turnero-time-display flex min-w-[clamp(13rem,17vw,22rem)] flex-col items-center justify-center text-center">
+        <div className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary-soft/85 px-4 py-2 text-primary">
+          <Clock3 aria-hidden="true" className="h-4 w-4" />
+          <span className="text-[0.7rem] font-extrabold uppercase tracking-[0.2em]">
+            Hora de llamado
+          </span>
+        </div>
+        <p className="mt-4 font-black leading-none text-foreground text-[clamp(4rem,5.8vw,7rem)]">
+          {formatTurnoTime(hora)}
+        </p>
+        <span className="mt-4 h-1.5 w-24 rounded-full bg-primary/35" aria-hidden="true" />
+      </div>
+    </div>
   )
 }
 
@@ -304,7 +331,7 @@ function TurneroInfoGrid({
 
 function HistorialPanel({ eventos }: { eventos: TurneroEvent[] }) {
   return (
-    <div className="flex min-h-[clamp(18rem,32vh,28rem)] flex-col rounded-xl border border-border bg-card/80 p-[clamp(1rem,1.25vw,1.5rem)] shadow-sm">
+    <div className="flex min-h-[clamp(18rem,32vh,28rem)] flex-col rounded-2xl border border-border/80 bg-card/90 p-[clamp(1rem,1.25vw,1.5rem)] shadow-sm">
       <div className="mb-3">
         <h2 className="text-sm font-extrabold uppercase tracking-wide text-foreground">
           Historial de llamados
@@ -315,7 +342,7 @@ function HistorialPanel({ eventos }: { eventos: TurneroEvent[] }) {
       {eventos.length ? (
         <div className="space-y-2">
           {eventos.map((event) => (
-            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5" key={event.id}>
+            <div className="rounded-xl border border-border/80 bg-muted/25 px-3 py-2.5" key={event.id}>
               <div className="flex items-center justify-between gap-2">
                 <Badge variant={event.accion === 'CALL' ? 'info' : 'warning'}>
                   {event.accion === 'CALL' ? 'LLAMADO' : 'RELLAMADO'}
@@ -354,7 +381,7 @@ function ProximosTurnosPanel({
   return (
     <div
       className={cn(
-        'flex min-h-[clamp(18rem,32vh,28rem)] flex-col rounded-xl border border-border bg-card/80 p-[clamp(1rem,1.25vw,1.5rem)] shadow-sm',
+        'flex min-h-[clamp(18rem,32vh,28rem)] flex-col rounded-2xl border border-border/80 bg-card/90 p-[clamp(1rem,1.25vw,1.5rem)] shadow-sm',
         featured && 'border-warning/30 bg-card shadow-clinical',
       )}
     >
@@ -405,7 +432,7 @@ function ProximoTurnoItem({
   return (
     <div
       className={cn(
-        'grid gap-3 rounded-lg border border-border bg-muted/25 px-[clamp(0.85rem,1.1vw,1.25rem)] py-[clamp(0.85rem,1vw,1.15rem)] md:grid-cols-[minmax(82px,0.45fr)_minmax(220px,1.7fr)_minmax(90px,0.55fr)_minmax(120px,0.65fr)] md:items-center',
+        'grid gap-3 rounded-xl border border-border bg-muted/25 px-[clamp(0.85rem,1.1vw,1.25rem)] py-[clamp(0.85rem,1vw,1.15rem)] md:grid-cols-[minmax(82px,0.45fr)_minmax(220px,1.7fr)_minmax(90px,0.55fr)_minmax(120px,0.65fr)] md:items-center',
         isPrimary && 'border-warning/40 border-l-4 border-l-warning bg-warning-soft/80',
         shouldPulse && 'turnero-next-pulse',
       )}
@@ -433,9 +460,6 @@ function ProximoTurnoItem({
           )}
         >
           {getPacienteDisplay(turno)}
-        </p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">
-          {turno.medico?.nombre ?? 'Médico sin datos'}
         </p>
       </div>
       <div>
@@ -493,16 +517,6 @@ function getConsultorioDisplay(turno: TurnoDetallado) {
   const compactValue = consultorio.replace(/^consultorio\s*/i, '').trim()
 
   return compactValue || consultorio
-}
-
-function getConsultorioText(turno: TurnoDetallado) {
-  const consultorio = getConsultorioDisplay(turno)
-
-  return consultorio === '-' ? consultorio : `Consultorio ${consultorio}`
-}
-
-function getConsultorioHero(turno: TurnoDetallado) {
-  return getConsultorioText(turno).toLocaleUpperCase('es-AR')
 }
 
 function formatTurnoTime(time: string) {
