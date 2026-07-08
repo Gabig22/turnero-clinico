@@ -81,6 +81,10 @@ a {
   box-shadow: 0 0 0 2px rgb(15 118 110 / 0.15);
 }
 
+.patient-search-input {
+  padding-left: 2.75rem;
+}
+
 .login-turnero-heartbeat {
   animation: login-turnero-heartbeat 2.15s ease-in-out infinite;
   box-shadow: 0 0 0 0 rgb(15 118 110 / 0.18);

@@ -100,6 +100,10 @@ const TURNO_ESTADOS: TurnoEstado[] = [
 
 const SLOT_DURATIONS: AppSettings['slotDuracion'][] = [15, 20, 30, 40]
 
+function todayKey() {
+  return new Date().toISOString().slice(0, 10)
+}
+
 function normalizeText(value: string) {
   return value
     .trim()
@@ -136,6 +140,32 @@ function normalizeSlotDuration(value: number | null | undefined): AppSettings['s
   return SLOT_DURATIONS.includes(value as AppSettings['slotDuracion'])
     ? (value as AppSettings['slotDuracion'])
     : DEFAULT_APP_SETTINGS.slotDuracion
+}
+
+function compactOptional(value?: string | null) {
+  return value?.trim() || null
+}
+
+function requireText(value: string | undefined, message: string) {
+  const normalizedValue = value?.trim()
+
+  if (!normalizedValue) {
+    throw new Error(message)
+  }
+
+  return normalizedValue
+}
+
+function assertDateKey(value: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error('SeleccionÃ¡ una fecha vÃ¡lida.')
+  }
+}
+
+function assertTimeValue(value: string) {
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
+    throw new Error('SeleccionÃ¡ una hora vÃ¡lida.')
+  }
 }
 
 function mapMedico(row: MedicoRow): Medico {
@@ -237,6 +267,60 @@ function throwReadOnly(methodName: string): never {
 function handleSupabaseError(methodName: string, error: { message: string } | null) {
   if (error) {
     throw new Error(`No pudimos leer datos de Supabase (${methodName}): ${error.message}`)
+  }
+}
+
+function handleSupabaseWriteError(
+  methodName: string,
+  error: { code?: string; message: string } | null,
+  messages: {
+    duplicate?: string
+    permission?: string
+  } = {},
+): asserts error is null {
+  if (!error) {
+    return
+  }
+
+  if (error.code === '23505') {
+    throw new Error(messages.duplicate ?? 'Ya existe un registro con esos datos.')
+  }
+
+  if (error.code === '42501') {
+    throw new Error('No tenés permisos para crear pacientes con este usuario.')
+  }
+
+  throw new Error(`No pudimos guardar datos en Supabase (${methodName}): ${error.message}`)
+}
+
+async function getCurrentUserIdForWrite() {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase.auth.getUser()
+
+  if (error || !data.user?.id) {
+    throw new Error('Necesitás iniciar sesión para crear pacientes.')
+  }
+
+  return data.user.id
+}
+
+async function getCurrentUserIdForAction(actionLabel: string) {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase.auth.getUser()
+
+  if (error || !data.user?.id) {
+    throw new Error(`NecesitÃ¡s iniciar sesiÃ³n para ${actionLabel}.`)
+  }
+
+  return data.user.id
+}
+
+async function ensureCurrentUserForWrite(actionLabel: string) {
+  const supabase = getSupabaseClient()
+  const { data, error } = await supabase.auth.getUser()
+
+  if (error || !data.user?.id) {
+    throw new Error(`NecesitÃ¡s iniciar sesiÃ³n para ${actionLabel}.`)
   }
 }
 
@@ -431,7 +515,38 @@ export const supabaseApi: SupabaseApi = {
     return data ? mapMedico(data as MedicoRow) : null
   },
 
-  createMedico: async () => throwReadOnly('createMedico'),
+  createMedico: async (input) => {
+    await ensureCurrentUserForWrite('crear mÃ©dicos')
+
+    const supabase = getSupabaseClient()
+    const { data, error } = await supabase
+      .from('medicos')
+      .insert({
+        nombre: requireText(input.nombre, 'El nombre es obligatorio.'),
+        especialidad: requireText(input.especialidad, 'La especialidad es obligatoria.'),
+        consultorio: requireText(input.consultorio, 'El consultorio es obligatorio.'),
+        matricula: input.matricula?.trim() ?? '',
+        telefono: compactOptional(input.telefono),
+        email: compactOptional(input.email),
+        obras_sociales: toStringArray(input.obras_sociales),
+        dias_disponibles: toStringArray(input.dias_disponibles),
+        activo: input.activo ?? true,
+      })
+      .select(
+        'id,nombre,especialidad,consultorio,matricula,telefono,email,obras_sociales,dias_disponibles,activo',
+      )
+      .single()
+
+    if (error?.code === '42501') {
+      throw new Error('No tenÃ©s permisos para crear mÃ©dicos con este usuario.')
+    }
+
+    handleSupabaseWriteError('createMedico', error, {
+      duplicate: 'Ya existe un mÃ©dico con esos datos.',
+    })
+
+    return mapMedico(data as MedicoRow)
+  },
 
   updateMedico: async () => throwReadOnly('updateMedico'),
 
@@ -457,7 +572,48 @@ export const supabaseApi: SupabaseApi = {
     )
   },
 
-  createPaciente: async () => throwReadOnly('createPaciente'),
+  createPaciente: async (input) => {
+    const supabase = getSupabaseClient()
+    const userId = await getCurrentUserIdForWrite()
+    const dni = requireText(input.dni, 'El DNI es obligatorio.')
+    const { data: existingPaciente, error: existingError } = await supabase
+      .from('pacientes')
+      .select('id')
+      .eq('dni', dni)
+      .maybeSingle()
+
+    handleSupabaseError('createPaciente.verificarDni', existingError)
+
+    if (existingPaciente) {
+      throw new Error('Ya existe un paciente con ese DNI.')
+    }
+
+    const { data, error } = await supabase
+      .from('pacientes')
+      .insert({
+        nombre: requireText(input.nombre, 'El nombre es obligatorio.'),
+        apellido: requireText(input.apellido, 'El apellido es obligatorio.'),
+        dni,
+        obra_social: requireText(input.obra_social, 'La obra social es obligatoria.'),
+        telefono: compactOptional(input.telefono),
+        email: compactOptional(input.email),
+        notas: compactOptional(input.notas),
+        fecha_nacimiento: input.fecha_nacimiento || null,
+        fecha_alta: input.fecha_alta || todayKey(),
+        activo: input.activo ?? true,
+        created_by: userId,
+      })
+      .select(
+        'id,nombre,apellido,dni,obra_social,telefono,email,notas,fecha_nacimiento,fecha_alta,activo,created_at',
+      )
+      .single()
+
+    handleSupabaseWriteError('createPaciente', error, {
+      duplicate: 'Ya existe un paciente con ese DNI.',
+    })
+
+    return mapPaciente(data as PacienteRow)
+  },
 
   updatePaciente: async () => throwReadOnly('updatePaciente'),
 
@@ -515,7 +671,162 @@ export const supabaseApi: SupabaseApi = {
     )
   },
 
-  createTurno: async () => throwReadOnly('createTurno'),
+  createTurno: async (input) => {
+    const supabase = getSupabaseClient()
+    const userId = await getCurrentUserIdForAction('crear turnos')
+    const medicoId = requireText(input.medico_id, 'SeleccionÃ¡ un mÃ©dico.')
+    const pacienteId = requireText(input.paciente_id, 'SeleccionÃ¡ un paciente.')
+    const fecha = requireText(input.fecha, 'La fecha es obligatoria.')
+    const hora = requireText(input.hora, 'La hora es obligatoria.').slice(0, 5)
+    const obraSocial = requireText(input.obra_social, 'La obra social es obligatoria.')
+
+    assertDateKey(fecha)
+    assertTimeValue(hora)
+
+    if (input.estado && input.estado !== 'pendiente') {
+      throw new Error('Por ahora los turnos nuevos en Supabase se crean como pendientes.')
+    }
+
+    const { data: medicoData, error: medicoError } = await supabase
+      .from('medicos')
+      .select(
+        'id,nombre,especialidad,consultorio,matricula,telefono,email,obras_sociales,dias_disponibles,activo',
+      )
+      .eq('id', medicoId)
+      .maybeSingle()
+
+    handleSupabaseError('createTurno.medico', medicoError)
+
+    if (!medicoData) {
+      throw new Error('SeleccionÃ¡ un mÃ©dico vÃ¡lido.')
+    }
+
+    const medico = mapMedico(medicoData as MedicoRow)
+
+    if (!medico.activo) {
+      throw new Error('No se puede crear un turno a un mÃ©dico inactivo.')
+    }
+
+    const { data: pacienteData, error: pacienteError } = await supabase
+      .from('pacientes')
+      .select(
+        'id,nombre,apellido,dni,obra_social,telefono,email,notas,fecha_nacimiento,fecha_alta,activo,created_at',
+      )
+      .eq('id', pacienteId)
+      .maybeSingle()
+
+    handleSupabaseError('createTurno.paciente', pacienteError)
+
+    if (!pacienteData) {
+      throw new Error('SeleccionÃ¡ un paciente vÃ¡lido.')
+    }
+
+    const paciente = mapPaciente(pacienteData as PacienteRow)
+
+    if (!paciente.activo) {
+      throw new Error('No se puede crear un turno a un paciente inactivo.')
+    }
+
+    const { data: turnosDelHorario, error: conflictError } = await supabase
+      .from('turnos')
+      .select('id,hora,estado')
+      .eq('medico_id', medicoId)
+      .eq('fecha', fecha)
+
+    handleSupabaseError('createTurno.conflicto', conflictError)
+
+    const hasConflict = (turnosDelHorario ?? []).some((turno) => {
+      const estado = normalizeTurnoEstado(turno.estado)
+      return (
+        normalizeTimeValue(turno.hora) === hora &&
+        !['cancelado', 'ausente', 'reprogramado'].includes(estado)
+      )
+    })
+
+    if (hasConflict) {
+      throw new Error('Ya existe un turno para este mÃ©dico en ese horario.')
+    }
+
+    const { data, error } = await supabase
+      .from('turnos')
+      .insert({
+        medico_id: medicoId,
+        paciente_id: pacienteId,
+        fecha,
+        hora,
+        estado: 'pendiente',
+        obra_social: obraSocial,
+        consultorio_cache: medico.consultorio,
+        notas: compactOptional(input.notas),
+        llamado_count: 0,
+        pospuesto_count: 0,
+        reprogramado_count: 0,
+        started_at: null,
+        completed_at: null,
+        created_by: userId,
+      })
+      .select(
+        `
+          id,
+          medico_id,
+          paciente_id,
+          fecha,
+          hora,
+          estado,
+          obra_social,
+          consultorio_cache,
+          notas,
+          llamado_count,
+          pospuesto_count,
+          reprogramado_count,
+          started_at,
+          completed_at,
+          created_at,
+          updated_at,
+          medico:medicos (
+            id,
+            nombre,
+            especialidad,
+            consultorio,
+            matricula,
+            telefono,
+            email,
+            obras_sociales,
+            dias_disponibles,
+            activo
+          ),
+          paciente:pacientes (
+            id,
+            nombre,
+            apellido,
+            dni,
+            obra_social,
+            telefono,
+            email,
+            notas,
+            fecha_nacimiento,
+            fecha_alta,
+            activo,
+            created_at
+          )
+        `,
+      )
+      .single()
+
+    if (error?.code === '42501') {
+      throw new Error('No tenÃ©s permisos para crear turnos con este usuario.')
+    }
+
+    if (error?.code === '23503') {
+      throw new Error('SeleccionÃ¡ un mÃ©dico y un paciente vÃ¡lidos.')
+    }
+
+    handleSupabaseWriteError('createTurno', error, {
+      duplicate: 'Ya existe un turno con esos datos.',
+    })
+
+    return mapTurno(data as TurnoRow)
+  },
 
   updateTurno: async () => throwReadOnly('updateTurno'),
 

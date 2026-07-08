@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 
 import {
   formatDateDisplay,
@@ -19,6 +19,20 @@ type DateInputDisplayProps = {
 
 const invalidDateMessage = 'Ingresá una fecha válida en formato DD/MM/AAAA'
 
+function formatDateDraft(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 8)
+
+  if (digits.length <= 2) {
+    return digits
+  }
+
+  if (digits.length <= 4) {
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`
+  }
+
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`
+}
+
 export function DateInputDisplay({
   value = '',
   onChange,
@@ -30,6 +44,7 @@ export function DateInputDisplay({
   className,
 }: DateInputDisplayProps) {
   const inputId = useId()
+  const calendarInputRef = useRef<HTMLInputElement | null>(null)
   const [draft, setDraft] = useState(() => (value ? formatDateDisplay(value) : ''))
   const [internalError, setInternalError] = useState('')
 
@@ -42,15 +57,17 @@ export function DateInputDisplay({
   }, [value])
 
   const updateValue = (nextDisplayValue: string) => {
-    setDraft(nextDisplayValue)
+    const formattedDisplayValue = formatDateDraft(nextDisplayValue)
+
+    setDraft(formattedDisplayValue)
     setInternalError('')
 
-    if (!nextDisplayValue.trim()) {
+    if (!formattedDisplayValue.trim()) {
       onChange('')
       return
     }
 
-    const parsedDate = parseDisplayDate(nextDisplayValue)
+    const parsedDate = parseDisplayDate(formattedDisplayValue)
 
     if (parsedDate) {
       onChange(parsedDate)
@@ -79,6 +96,29 @@ export function DateInputDisplay({
     onChange(parsedDate)
   }
 
+  const openNativeCalendar = () => {
+    if (disabled) {
+      return
+    }
+
+    const input = calendarInputRef.current
+
+    if (!input) {
+      return
+    }
+
+    if (typeof input.showPicker === 'function') {
+      try {
+        input.showPicker()
+      } catch {
+        input.focus()
+      }
+      return
+    }
+
+    input.focus()
+  }
+
   const visibleError = error ?? internalError
   const input = (
     <>
@@ -87,10 +127,26 @@ export function DateInputDisplay({
         disabled={disabled}
         id={inputId}
         inputMode="numeric"
+        maxLength={10}
         onBlur={handleBlur}
+        onClick={openNativeCalendar}
+        onFocus={openNativeCalendar}
         onChange={(event) => updateValue(event.target.value)}
         placeholder={placeholder}
         value={draft}
+      />
+      <input
+        aria-hidden="true"
+        className="sr-only"
+        disabled={disabled}
+        onChange={(event) => {
+          onChange(event.target.value)
+          setInternalError('')
+        }}
+        ref={calendarInputRef}
+        tabIndex={-1}
+        type="date"
+        value={value}
       />
       {visibleError ? (
         <span className="mt-1 block text-xs font-medium text-destructive">{visibleError}</span>

@@ -27,8 +27,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
 import { Card, CardContent } from '@/components/ui/card'
+import { PacienteFormDialog } from '@/features/pacientes/PacientesPage'
 import { useMedicos } from '@/hooks/useMedicos'
-import { usePacientes } from '@/hooks/usePacientes'
+import { useCrearPaciente, usePacientes } from '@/hooks/usePacientes'
 import { useAppSettings } from '@/hooks/useSettings'
 import {
   useActualizarTurno,
@@ -47,11 +48,33 @@ import { generateTimeOptions } from '@/lib/dates/timeSlots'
 import { DEFAULT_APP_SETTINGS } from '@/lib/storage/settingsStorage'
 import { isTurnoVencidoPendienteDeCierre, turnoEstadoOptions } from '@/lib/turnos/status'
 import { formatConsultorioCompact } from '@/lib/utils/consultorio'
-import { turnoSchema, type TurnoFormValues } from '@/lib/validators/schemas'
+import {
+  turnoSchema,
+  type PacienteFormValues,
+  type TurnoFormValues,
+} from '@/lib/validators/schemas'
 import type { Medico, Paciente, TurnoDetallado, TurnoEstado } from '@/types'
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function normalizeText(value: string) {
+  return value
+    .trim()
+    .toLocaleLowerCase('es-AR')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+}
+
+function formatTimeDraft(value: string) {
+  const digits = value.replace(/\D/g, '').slice(0, 4)
+
+  if (digits.length <= 2) {
+    return digits
+  }
+
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`
 }
 
 const emptyValues: TurnoFormValues = {
@@ -521,12 +544,28 @@ export function TurnoFormDialog({
   onClose,
   onSubmit,
 }: TurnoFormDialogProps) {
+  const [isPacientePickerOpen, setPacientePickerOpen] = useState(false)
+  const [pacienteSearch, setPacienteSearch] = useState('')
+  const [isPacienteFormOpen, setIsPacienteFormOpen] = useState(false)
+  const [quickCreatedPaciente, setQuickCreatedPaciente] = useState<Paciente | null>(null)
+  const crearPaciente = useCrearPaciente()
+  const pacientesWithQuickCreated = useMemo(() => {
+    if (!quickCreatedPaciente || pacientes.some((paciente) => paciente.id === quickCreatedPaciente.id)) {
+      return pacientes
+    }
+
+    return [quickCreatedPaciente, ...pacientes]
+  }, [pacientes, quickCreatedPaciente])
   const availableObrasSociales = useMemo(
     () =>
-      Array.from(new Set([...obrasSociales, ...(turno ? [turno.obra_social] : [])])).sort(
-        (a, b) => a.localeCompare(b, 'es'),
-      ),
-    [obrasSociales, turno],
+      Array.from(
+        new Set([
+          ...obrasSociales,
+          ...(turno ? [turno.obra_social] : []),
+          ...(quickCreatedPaciente ? [quickCreatedPaciente.obra_social] : []),
+        ]),
+      ).sort((a, b) => a.localeCompare(b, 'es')),
+    [obrasSociales, quickCreatedPaciente, turno],
   )
   const availableTimeOptions = useMemo(
     () =>
@@ -537,10 +576,22 @@ export function TurnoFormDialog({
   )
   const selectablePacientes = useMemo(
     () =>
-      pacientes.filter(
+      pacientesWithQuickCreated.filter(
         (paciente) => paciente.activo || (turno ? paciente.id === turno.paciente_id : false),
       ),
-    [pacientes, turno],
+    [pacientesWithQuickCreated, turno],
+  )
+  const selectedSearch = normalizeText(pacienteSearch)
+  const filteredPacientes = useMemo(
+    () =>
+      selectedSearch
+        ? selectablePacientes.filter((paciente) =>
+            normalizeText(`${paciente.apellido} ${paciente.nombre} ${paciente.dni}`).includes(
+              selectedSearch,
+            ),
+          )
+        : selectablePacientes,
+    [selectablePacientes, selectedSearch],
   )
   const selectableMedicos = useMemo(
     () =>
@@ -551,6 +602,7 @@ export function TurnoFormDialog({
   )
   const {
     formState: { errors },
+    getValues,
     handleSubmit,
     register,
     reset,
@@ -565,23 +617,70 @@ export function TurnoFormDialog({
   const selectedPacienteId = watch('paciente_id')
   const selectedMedicoId = watch('medico_id')
   const selectedFecha = watch('fecha')
+  const selectedHora = watch('hora')
+  const selectedPaciente = selectablePacientes.find((paciente) => paciente.id === selectedPacienteId)
   const selectedMedico = selectableMedicos.find((medico) => medico.id === selectedMedicoId)
 
   useEffect(() => {
-    reset(
-      turno
-        ? mapTurnoToForm(turno)
-        : buildEmptyTurnoValues(selectablePacientes, selectableMedicos, timeOptions[0], defaultFecha),
+    if (turno) {
+      reset(mapTurnoToForm(turno))
+      return
+    }
+
+    const defaults = buildEmptyTurnoValues(
+      selectablePacientes,
+      selectableMedicos,
+      timeOptions[0],
+      defaultFecha,
     )
-  }, [defaultFecha, reset, selectableMedicos, selectablePacientes, timeOptions, turno])
+    const currentValues = getValues()
+
+    reset({
+      ...defaults,
+      ...currentValues,
+      paciente_id: currentValues.paciente_id || defaults.paciente_id,
+      medico_id: currentValues.medico_id || defaults.medico_id,
+      fecha: currentValues.fecha || defaults.fecha,
+      hora: currentValues.hora || defaults.hora,
+      obra_social: currentValues.obra_social || defaults.obra_social,
+      estado: currentValues.estado || defaults.estado,
+      notas: currentValues.notas ?? defaults.notas,
+    })
+  }, [defaultFecha, getValues, reset, selectableMedicos, selectablePacientes, timeOptions, turno])
 
   useEffect(() => {
-    const paciente = pacientes.find((item) => item.id === selectedPacienteId)
+    const paciente = pacientesWithQuickCreated.find((item) => item.id === selectedPacienteId)
 
     if (paciente) {
       setValue('obra_social', paciente.obra_social)
     }
-  }, [pacientes, selectedPacienteId, setValue])
+  }, [pacientesWithQuickCreated, selectedPacienteId, setValue])
+
+  const selectPaciente = (paciente: Paciente) => {
+    setValue('paciente_id', paciente.id, { shouldDirty: true, shouldValidate: true })
+    setValue('obra_social', paciente.obra_social, { shouldDirty: true, shouldValidate: true })
+    setPacientePickerOpen(false)
+    setPacienteSearch('')
+  }
+
+  const openPacienteForm = () => {
+    setPacientePickerOpen(false)
+    setIsPacienteFormOpen(true)
+  }
+
+  const createPacienteFromTurno = (values: PacienteFormValues) => {
+    crearPaciente.mutate(values, {
+      onSuccess: (paciente) => {
+        setQuickCreatedPaciente(paciente)
+        selectPaciente(paciente)
+        setIsPacienteFormOpen(false)
+      },
+    })
+  }
+
+  const updateHora = (value: string) => {
+    setValue('hora', formatTimeDraft(value), { shouldDirty: true, shouldValidate: true })
+  }
 
   const submitForm = handleSubmit((values) => {
     const parsed = turnoSchema.safeParse(values)
@@ -615,17 +714,103 @@ export function TurnoFormDialog({
         <form className="flex min-h-0 flex-1 flex-col" onSubmit={submitForm}>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-5">
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField error={errors.paciente_id?.message} label="Paciente *">
-                <select className="form-input" {...register('paciente_id')}>
-                  <option value="">Seleccionar paciente</option>
-                  {selectablePacientes.map((paciente) => (
-                    <option key={paciente.id} value={paciente.id}>
-                      {paciente.apellido}, {paciente.nombre} - DNI {paciente.dni}
-                      {!paciente.activo ? ' (inactivo)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
+              <div className="block">
+                <span className="mb-1.5 block text-sm font-medium text-foreground">
+                  Paciente *
+                </span>
+                <input type="hidden" {...register('paciente_id')} />
+                <div className="relative">
+                  <button
+                    className="form-input flex items-center justify-between gap-3 text-left"
+                    onClick={() => setPacientePickerOpen((isOpen) => !isOpen)}
+                    type="button"
+                  >
+                    <span
+                      className={
+                        selectedPaciente
+                          ? 'min-w-0 truncate text-foreground'
+                          : 'min-w-0 truncate text-muted-foreground'
+                      }
+                    >
+                      {selectedPaciente
+                        ? `${selectedPaciente.apellido}, ${selectedPaciente.nombre} - DNI ${selectedPaciente.dni}`
+                        : 'Buscar o crear paciente'}
+                    </span>
+                    <Search aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+
+                  {isPacientePickerOpen ? (
+                    <div className="absolute left-0 right-0 top-full z-[70] mt-2 overflow-hidden rounded-lg border border-border bg-card shadow-clinical">
+                      <div className="border-b border-border p-2">
+                        <div className="relative">
+                          <Search
+                            aria-hidden="true"
+                            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                          />
+                          <input
+                            autoFocus
+                            className="form-input patient-search-input h-9"
+                            onChange={(event) => setPacienteSearch(event.target.value)}
+                            placeholder="Buscar por DNI, nombre o apellido"
+                            type="search"
+                            value={pacienteSearch}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="max-h-56 overflow-y-auto p-1">
+                        {filteredPacientes.length ? (
+                          filteredPacientes.map((paciente) => (
+                            <button
+                              className="flex w-full items-start justify-between gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-accent"
+                              key={paciente.id}
+                              onClick={() => selectPaciente(paciente)}
+                              type="button"
+                            >
+                              <span className="min-w-0">
+                                <span className="block font-semibold text-foreground">
+                                  {paciente.apellido}, {paciente.nombre}
+                                  {!paciente.activo ? ' (inactivo)' : ''}
+                                </span>
+                                <span className="mt-0.5 block text-xs text-muted-foreground">
+                                  DNI {paciente.dni} · {paciente.obra_social}
+                                </span>
+                              </span>
+                              {selectedPacienteId === paciente.id ? (
+                                <CheckCircle2
+                                  aria-hidden="true"
+                                  className="mt-0.5 h-4 w-4 shrink-0 text-success"
+                                />
+                              ) : null}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-4 text-sm text-muted-foreground">
+                            No encontramos pacientes con esa búsqueda.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-border p-2">
+                        <Button
+                          className="w-full justify-start"
+                          onClick={openPacienteForm}
+                          type="button"
+                          variant="outline"
+                        >
+                          <Plus aria-hidden="true" className="h-4 w-4" />
+                          Nuevo paciente
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+                {errors.paciente_id?.message ? (
+                  <span className="mt-1 block text-xs font-medium text-destructive">
+                    {errors.paciente_id.message}
+                  </span>
+                ) : null}
+              </div>
 
               <FormField error={errors.medico_id?.message} label="Médico *">
                 <select className="form-input" {...register('medico_id')}>
@@ -649,12 +834,15 @@ export function TurnoFormDialog({
               </FormField>
 
               <FormField error={errors.hora?.message} label="Hora *">
+                <input type="hidden" {...register('hora')} />
                 <input
                   className="form-input"
+                  inputMode="numeric"
                   list="horarios-turno-sugeridos"
-                  step={slotDuracion * 60}
-                  type="time"
-                  {...register('hora')}
+                  maxLength={5}
+                  onChange={(event) => updateHora(event.target.value)}
+                  placeholder="HH:mm"
+                  value={selectedHora ?? ''}
                 />
                 <datalist id="horarios-turno-sugeridos">
                   {availableTimeOptions.map((time) => (
@@ -707,14 +895,21 @@ export function TurnoFormDialog({
             <Button disabled={isSaving} onClick={onClose} type="button" variant="outline">
               Cancelar
             </Button>
-            <Button
-              disabled={isSaving || !selectablePacientes.length || !selectableMedicos.length}
-              type="submit"
-            >
+            <Button disabled={isSaving || !selectableMedicos.length} type="submit">
               {isSaving ? 'Guardando...' : turno ? 'Guardar cambios' : 'Crear turno'}
             </Button>
           </div>
         </form>
+
+        {isPacienteFormOpen ? (
+          <PacienteFormDialog
+            isSaving={crearPaciente.isPending}
+            obrasSociales={availableObrasSociales}
+            onClose={() => setIsPacienteFormOpen(false)}
+            onSubmit={createPacienteFromTurno}
+            paciente={null}
+          />
+        ) : null}
       </div>
     </div>
   )
