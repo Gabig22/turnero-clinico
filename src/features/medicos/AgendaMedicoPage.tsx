@@ -19,8 +19,10 @@ import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 
 import { EmptyState } from '@/components/shared/EmptyState'
+import { DateInputDisplay } from '@/components/shared/DateInputDisplay'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { TimeSlotPicker } from '@/components/shared/TimeSlotPicker'
 import { AgendaMensualCalendar } from '@/components/turnos/AgendaMensualCalendar'
 import { PosponerTurnoModal } from '@/components/turnos/PosponerTurnoModal'
 import { ReprogramarTurnoModal } from '@/components/turnos/ReprogramarTurnoModal'
@@ -51,6 +53,7 @@ import {
   useTurnosMedico,
 } from '@/hooks/useTurnos'
 import { formatDateDisplay, parseDisplayDate } from '@/lib/dates/displayDate'
+import { medicoDoesNotWorkOnDate } from '@/lib/dates/medicoAvailability'
 import { generateTimeOptions } from '@/lib/dates/timeSlots'
 import { DEFAULT_APP_SETTINGS } from '@/lib/storage/settingsStorage'
 import { isTurnoVencidoPendienteDeCierre, turnoEstadoOptions } from '@/lib/turnos/status'
@@ -780,25 +783,14 @@ function AgendaTurnoFormDialog({
   const initialFormValues = turno
     ? mapTurnoToForm(turno)
     : buildNewTurnoValues(medico.id, fecha, selectablePacientes, timeOptions[0])
-  const [formDateInputValue, setFormDateInputValue] = useState(
-    formatDateDisplay(initialFormValues.fecha),
-  )
   const availableObrasSociales = useMemo(
     () =>
       Array.from(new Set([...obrasSociales, ...(turno ? [turno.obra_social] : [])])).sort(
         (a, b) => a.localeCompare(b, 'es'),
-      ),
+    ),
     [obrasSociales, turno],
   )
-  const availableTimeOptions = useMemo(
-    () =>
-      Array.from(new Set([...timeOptions, ...(turno ? [turno.hora.slice(0, 5)] : [])])).sort(
-        (a, b) => a.localeCompare(b),
-      ),
-    [timeOptions, turno],
-  )
   const {
-    clearErrors,
     formState: { errors },
     handleSubmit,
     register,
@@ -810,6 +802,26 @@ function AgendaTurnoFormDialog({
     defaultValues: initialFormValues,
   })
   const selectedPacienteId = watch('paciente_id')
+  const selectedFecha = watch('fecha')
+  const selectedHora = watch('hora')
+  const turnosDelDiaQuery = useTurnosMedico(medico.id, selectedFecha || '')
+  const horariosDisponibles = useMemo(() => {
+    const horariosOcupados = new Set(
+      (turnosDelDiaQuery.data ?? [])
+        .filter((item) => item.id !== turno?.id)
+        .filter((item) => !['cancelado', 'ausente', 'reprogramado'].includes(item.estado))
+        .map((item) => item.hora.slice(0, 5)),
+    )
+
+    return timeOptions.filter((time) => !horariosOcupados.has(time))
+  }, [timeOptions, turno?.id, turnosDelDiaQuery.data])
+  const availableTimeOptions = useMemo(
+    () =>
+      Array.from(new Set([...horariosDisponibles, ...(selectedHora ? [selectedHora] : [])])).sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [horariosDisponibles, selectedHora],
+  )
 
   useEffect(() => {
     const nextValues = turno
@@ -817,7 +829,6 @@ function AgendaTurnoFormDialog({
       : buildNewTurnoValues(medico.id, fecha, selectablePacientes, timeOptions[0])
 
     reset(nextValues)
-    setFormDateInputValue(formatDateDisplay(nextValues.fecha))
   }, [fecha, medico.id, reset, selectablePacientes, timeOptions, turno])
 
   useEffect(() => {
@@ -828,14 +839,13 @@ function AgendaTurnoFormDialog({
     }
   }, [pacientes, selectedPacienteId, setValue])
 
-  const submitForm = handleSubmit((values) => {
-    const parsedDisplayDate = parseDisplayDate(formDateInputValue)
-
-    if (!parsedDisplayDate) {
-      setError('fecha', { message: 'Ingresá una fecha válida en formato DD/MM/AAAA.' })
-      return
+  useEffect(() => {
+    if (selectedFecha && medicoDoesNotWorkOnDate(medico, selectedFecha)) {
+      setValue('fecha', '', { shouldDirty: true, shouldValidate: true })
     }
+  }, [medico, selectedFecha, setValue])
 
+  const submitForm = handleSubmit((values) => {
     const parsed = turnoSchema.safeParse(values)
 
     if (!parsed.success) {
@@ -849,10 +859,12 @@ function AgendaTurnoFormDialog({
       return
     }
 
-    onSubmit({
-      ...parsed.data,
-      fecha: parsedDisplayDate,
-    })
+    if (medicoDoesNotWorkOnDate(medico, parsed.data.fecha)) {
+      setError('fecha', { message: 'El médico no atiende ese día.' })
+      return
+    }
+
+    onSubmit(parsed.data)
   })
 
   return (
@@ -886,47 +898,35 @@ function AgendaTurnoFormDialog({
 
               <FormField error={errors.fecha?.message} label="Fecha *">
                 <input type="hidden" {...register('fecha')} />
-                <input
-                  className="form-input"
-                  inputMode="numeric"
-                  onBlur={() => {
-                    if (!parseDisplayDate(formDateInputValue)) {
-                      setError('fecha', {
-                        message: 'Ingresá una fecha válida en formato DD/MM/AAAA.',
-                      })
-                    }
-                  }}
-                  onChange={(event) => {
-                    const value = event.target.value
-                    const parsedDate = parseDisplayDate(value)
-
-                    setFormDateInputValue(value)
-
-                    if (parsedDate) {
-                      clearErrors('fecha')
-                      setValue('fecha', parsedDate)
-                    }
-                  }}
-                  placeholder="DD/MM/AAAA"
-                  value={formDateInputValue}
+                <DateInputDisplay
+                  disabledDateMessage="El médico no atiende ese día."
+                  isDateDisabled={(dateKey) => medicoDoesNotWorkOnDate(medico, dateKey)}
+                  onChange={(value) =>
+                    setValue('fecha', value, { shouldDirty: true, shouldValidate: true })
+                  }
+                  required
+                  value={selectedFecha}
                 />
               </FormField>
 
               <FormField error={errors.hora?.message} label="Hora *">
-                <input
-                  className="form-input"
-                  list="horarios-agenda-sugeridos"
-                  step={slotDuracion * 60}
-                  type="time"
-                  {...register('hora')}
+                <input type="hidden" {...register('hora')} />
+                <TimeSlotPicker
+                  description={`${medico.nombre} · ${selectedFecha ? formatDateDisplay(selectedFecha) : 'sin fecha'}`}
+                  emptyMessage={
+                    selectedFecha
+                      ? 'No quedan horarios disponibles para este médico y fecha.'
+                      : 'Seleccioná primero una fecha.'
+                  }
+                  isLoading={Boolean(selectedFecha && turnosDelDiaQuery.isLoading)}
+                  onChange={(value) =>
+                    setValue('hora', value, { shouldDirty: true, shouldValidate: true })
+                  }
+                  timeOptions={selectedFecha ? availableTimeOptions : []}
+                  value={selectedHora ?? ''}
                 />
-                <datalist id="horarios-agenda-sugeridos">
-                  {availableTimeOptions.map((time) => (
-                    <option key={time} value={time} />
-                  ))}
-                </datalist>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Sugerencias cada {slotDuracion} minutos.
+                  Formato 24 horas. Slots cada {slotDuracion} minutos.
                 </p>
               </FormField>
 

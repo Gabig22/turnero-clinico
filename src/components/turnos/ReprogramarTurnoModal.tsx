@@ -3,8 +3,11 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { DateInputDisplay } from '@/components/shared/DateInputDisplay'
+import { TimeSlotPicker } from '@/components/shared/TimeSlotPicker'
 import { useAppSettings } from '@/hooks/useSettings'
+import { useTurnosMedico } from '@/hooks/useTurnos'
 import { formatDateDisplay, isValidDateKey } from '@/lib/dates/displayDate'
+import { medicoDoesNotWorkOnDate } from '@/lib/dates/medicoAvailability'
 import { generateTimeOptions } from '@/lib/dates/timeSlots'
 import { DEFAULT_APP_SETTINGS } from '@/lib/storage/settingsStorage'
 import type { ReprogramarTurnoInput } from '@/services/dataApi'
@@ -46,6 +49,22 @@ export function ReprogramarTurnoModal({
       ).sort((a, b) => a.localeCompare(b)),
     [appSettings.horarioFin, appSettings.horarioInicio, appSettings.slotDuracion, turno],
   )
+  const turnosDelDiaQuery = useTurnosMedico(turno?.medico_id ?? '', fecha)
+  const availableTimeOptions = useMemo(() => {
+    const horariosOcupados = new Set(
+      (turnosDelDiaQuery.data ?? [])
+        .filter((item) => item.id !== turno?.id)
+        .filter((item) => !['cancelado', 'ausente', 'reprogramado'].includes(item.estado))
+        .map((item) => item.hora.slice(0, 5)),
+    )
+
+    return Array.from(
+      new Set([
+        ...timeOptions.filter((time) => !horariosOcupados.has(time)),
+        ...(hora ? [hora] : []),
+      ]),
+    ).sort((a, b) => a.localeCompare(b))
+  }, [hora, timeOptions, turno?.id, turnosDelDiaQuery.data])
 
   useEffect(() => {
     setFecha(turno?.fecha ?? '')
@@ -63,6 +82,11 @@ export function ReprogramarTurnoModal({
 
     if (!isValidDateKey(fecha)) {
       setError('Seleccioná una fecha válida.')
+      return
+    }
+
+    if (medicoDoesNotWorkOnDate(turno.medico, fecha)) {
+      setError('El médico no atiende ese día.')
       return
     }
 
@@ -111,28 +135,35 @@ export function ReprogramarTurnoModal({
                 <span className="mb-1.5 block text-sm font-medium text-foreground">
                   Nueva fecha *
                 </span>
-                <DateInputDisplay onChange={setFecha} required value={fecha} />
+                <DateInputDisplay
+                  disabledDateMessage="El médico no atiende ese día."
+                  isDateDisabled={(dateKey) => medicoDoesNotWorkOnDate(turno.medico, dateKey)}
+                  onChange={setFecha}
+                  required
+                  value={fecha}
+                />
               </label>
 
               <label className="block">
                 <span className="mb-1.5 block text-sm font-medium text-foreground">
                   Nueva hora *
                 </span>
-                <input
-                  className="form-input"
-                  list={`horarios-reprogramar-${turno.id}`}
-                  onChange={(event) => setHora(event.target.value)}
-                  step={appSettings.slotDuracion * 60}
-                  type="time"
+                <TimeSlotPicker
+                  description={`${turno.medico?.nombre ?? 'Médico'} · ${
+                    fecha ? formatDateDisplay(fecha) : 'sin fecha'
+                  }`}
+                  emptyMessage={
+                    fecha
+                      ? 'No quedan horarios disponibles para este médico y fecha.'
+                      : 'Seleccioná primero una fecha.'
+                  }
+                  isLoading={Boolean(fecha && turnosDelDiaQuery.isLoading)}
+                  onChange={setHora}
+                  timeOptions={fecha ? availableTimeOptions : []}
                   value={hora}
                 />
-                <datalist id={`horarios-reprogramar-${turno.id}`}>
-                  {timeOptions.map((time) => (
-                    <option key={time} value={time} />
-                  ))}
-                </datalist>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Sugerencias cada {appSettings.slotDuracion} minutos.
+                  Formato 24 horas. Slots cada {appSettings.slotDuracion} minutos.
                 </p>
               </label>
             </div>

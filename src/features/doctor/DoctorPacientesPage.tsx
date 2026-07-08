@@ -8,6 +8,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { DateInputDisplay } from '@/components/shared/DateInputDisplay'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { TimeSlotPicker } from '@/components/shared/TimeSlotPicker'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { buttonVariants } from '@/components/ui/button-variants'
@@ -16,8 +17,9 @@ import { PacienteFormDialog } from '@/features/pacientes/PacientesPage'
 import { useDoctorDemo, useDoctorPatients } from '@/hooks/useDoctorDemo'
 import { useActualizarPaciente } from '@/hooks/usePacientes'
 import { useAppSettings } from '@/hooks/useSettings'
-import { useConfirmarConflictoTurno, useCrearTurno } from '@/hooks/useTurnos'
+import { useConfirmarConflictoTurno, useCrearTurno, useTurnosMedico } from '@/hooks/useTurnos'
 import { formatDateDisplay } from '@/lib/dates/displayDate'
+import { medicoDoesNotWorkOnDate } from '@/lib/dates/medicoAvailability'
 import { generateTimeOptions } from '@/lib/dates/timeSlots'
 import { DEFAULT_APP_SETTINGS } from '@/lib/storage/settingsStorage'
 import { turnoSchema, type PacienteFormValues, type TurnoFormValues } from '@/lib/validators/schemas'
@@ -310,10 +312,34 @@ function NuevoTurnoPacienteDialog({
     defaultValues: buildTurnoForPaciente(paciente, medico, timeOptions[0]),
   })
   const selectedFecha = watch('fecha')
+  const selectedHora = watch('hora')
+  const turnosDelDiaQuery = useTurnosMedico(medico.id, selectedFecha || '')
+  const horariosDisponibles = useMemo(() => {
+    const horariosOcupados = new Set(
+      (turnosDelDiaQuery.data ?? [])
+        .filter((item) => !['cancelado', 'ausente', 'reprogramado'].includes(item.estado))
+        .map((item) => item.hora.slice(0, 5)),
+    )
+
+    return timeOptions.filter((time) => !horariosOcupados.has(time))
+  }, [timeOptions, turnosDelDiaQuery.data])
+  const availableTimeOptions = useMemo(
+    () =>
+      Array.from(new Set([...horariosDisponibles, ...(selectedHora ? [selectedHora] : [])])).sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [horariosDisponibles, selectedHora],
+  )
 
   useEffect(() => {
     reset(buildTurnoForPaciente(paciente, medico, timeOptions[0]))
   }, [medico, paciente, reset, timeOptions])
+
+  useEffect(() => {
+    if (selectedFecha && medicoDoesNotWorkOnDate(medico, selectedFecha)) {
+      setValue('fecha', '', { shouldDirty: true, shouldValidate: true })
+    }
+  }, [medico, selectedFecha, setValue])
 
   const submitForm = handleSubmit((values) => {
     const parsed = turnoSchema.safeParse(values)
@@ -326,6 +352,11 @@ function NuevoTurnoPacienteDialog({
           setError(fieldName as keyof TurnoFormValues, { message: issue.message })
         }
       })
+      return
+    }
+
+    if (medicoDoesNotWorkOnDate(medico, parsed.data.fecha)) {
+      setError('fecha', { message: 'El médico no atiende ese día.' })
       return
     }
 
@@ -362,24 +393,34 @@ function NuevoTurnoPacienteDialog({
               <FormField error={errors.fecha?.message} label="Fecha *">
                 <input type="hidden" {...register('fecha')} />
                 <DateInputDisplay
-                  onChange={(value) => setValue('fecha', value)}
+                  disabledDateMessage="El médico no atiende ese día."
+                  isDateDisabled={(dateKey) => medicoDoesNotWorkOnDate(medico, dateKey)}
+                  onChange={(value) =>
+                    setValue('fecha', value, { shouldDirty: true, shouldValidate: true })
+                  }
                   required
                   value={selectedFecha}
                 />
               </FormField>
               <FormField error={errors.hora?.message} label="Hora *">
-                <input
-                  className="form-input"
-                  list="horarios-paciente-sugeridos"
-                  step={slotDuracion * 60}
-                  type="time"
-                  {...register('hora')}
+                <input type="hidden" {...register('hora')} />
+                <TimeSlotPicker
+                  description={`${medico.nombre} · ${selectedFecha ? formatDateDisplay(selectedFecha) : 'sin fecha'}`}
+                  emptyMessage={
+                    selectedFecha
+                      ? 'No quedan horarios disponibles para este médico y fecha.'
+                      : 'Seleccioná primero una fecha.'
+                  }
+                  isLoading={Boolean(selectedFecha && turnosDelDiaQuery.isLoading)}
+                  onChange={(value) =>
+                    setValue('hora', value, { shouldDirty: true, shouldValidate: true })
+                  }
+                  timeOptions={selectedFecha ? availableTimeOptions : []}
+                  value={selectedHora ?? ''}
                 />
-                <datalist id="horarios-paciente-sugeridos">
-                  {timeOptions.map((time) => (
-                    <option key={time} value={time} />
-                  ))}
-                </datalist>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Formato 24 horas. Slots cada {slotDuracion} minutos.
+                </p>
               </FormField>
               <FormField error={errors.obra_social?.message} label="Obra social *">
                 <select className="form-input" {...register('obra_social')}>

@@ -21,6 +21,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { DateInputDisplay } from '@/components/shared/DateInputDisplay'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { StatusBadge } from '@/components/shared/StatusBadge'
+import { TimeSlotPicker } from '@/components/shared/TimeSlotPicker'
 import { PosponerTurnoModal } from '@/components/turnos/PosponerTurnoModal'
 import { ReprogramarTurnoModal } from '@/components/turnos/ReprogramarTurnoModal'
 import { Badge } from '@/components/ui/badge'
@@ -44,6 +45,7 @@ import {
   useTurnos,
 } from '@/hooks/useTurnos'
 import { formatDateDisplay } from '@/lib/dates/displayDate'
+import { medicoDoesNotWorkOnDate } from '@/lib/dates/medicoAvailability'
 import { generateTimeOptions } from '@/lib/dates/timeSlots'
 import { DEFAULT_APP_SETTINGS } from '@/lib/storage/settingsStorage'
 import { isTurnoVencidoPendienteDeCierre, turnoEstadoOptions } from '@/lib/turnos/status'
@@ -65,16 +67,6 @@ function normalizeText(value: string) {
     .toLocaleLowerCase('es-AR')
     .normalize('NFD')
     .replace(/\p{Diacritic}/gu, '')
-}
-
-function formatTimeDraft(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 4)
-
-  if (digits.length <= 2) {
-    return digits
-  }
-
-  return `${digits.slice(0, 2)}:${digits.slice(2)}`
 }
 
 const emptyValues: TurnoFormValues = {
@@ -567,13 +559,6 @@ export function TurnoFormDialog({
       ).sort((a, b) => a.localeCompare(b, 'es')),
     [obrasSociales, quickCreatedPaciente, turno],
   )
-  const availableTimeOptions = useMemo(
-    () =>
-      Array.from(new Set([...timeOptions, ...(turno ? [turno.hora.slice(0, 5)] : [])])).sort(
-        (a, b) => a.localeCompare(b),
-      ),
-    [timeOptions, turno],
-  )
   const selectablePacientes = useMemo(
     () =>
       pacientesWithQuickCreated.filter(
@@ -620,6 +605,32 @@ export function TurnoFormDialog({
   const selectedHora = watch('hora')
   const selectedPaciente = selectablePacientes.find((paciente) => paciente.id === selectedPacienteId)
   const selectedMedico = selectableMedicos.find((medico) => medico.id === selectedMedicoId)
+  const turnosDelMedicoFilters = useMemo(
+    () => ({
+      medico_id: selectedMedicoId || '__sin_medico__',
+      fecha: selectedFecha || '__sin_fecha__',
+    }),
+    [selectedFecha, selectedMedicoId],
+  )
+  const turnosDelMedicoQuery = useTurnos(turnosDelMedicoFilters)
+  const horariosDisponibles = useMemo(() => {
+    const turnosDelDia = turnosDelMedicoQuery.data ?? []
+    const horariosOcupados = new Set(
+      turnosDelDia
+        .filter((item) => item.id !== turno?.id)
+        .filter((item) => !['cancelado', 'ausente', 'reprogramado'].includes(item.estado))
+        .map((item) => item.hora.slice(0, 5)),
+    )
+
+    return timeOptions.filter((time) => !horariosOcupados.has(time))
+  }, [timeOptions, turno?.id, turnosDelMedicoQuery.data])
+  const horariosSugeridos = useMemo(
+    () =>
+      Array.from(new Set([...horariosDisponibles, ...(selectedHora ? [selectedHora] : [])])).sort(
+        (a, b) => a.localeCompare(b),
+      ),
+    [horariosDisponibles, selectedHora],
+  )
 
   useEffect(() => {
     if (turno) {
@@ -656,6 +667,12 @@ export function TurnoFormDialog({
     }
   }, [pacientesWithQuickCreated, selectedPacienteId, setValue])
 
+  useEffect(() => {
+    if (selectedFecha && medicoDoesNotWorkOnDate(selectedMedico, selectedFecha)) {
+      setValue('fecha', '', { shouldDirty: true, shouldValidate: true })
+    }
+  }, [selectedFecha, selectedMedico, setValue])
+
   const selectPaciente = (paciente: Paciente) => {
     setValue('paciente_id', paciente.id, { shouldDirty: true, shouldValidate: true })
     setValue('obra_social', paciente.obra_social, { shouldDirty: true, shouldValidate: true })
@@ -679,7 +696,7 @@ export function TurnoFormDialog({
   }
 
   const updateHora = (value: string) => {
-    setValue('hora', formatTimeDraft(value), { shouldDirty: true, shouldValidate: true })
+    setValue('hora', value, { shouldDirty: true, shouldValidate: true })
   }
 
   const submitForm = handleSubmit((values) => {
@@ -693,6 +710,13 @@ export function TurnoFormDialog({
           setError(fieldName as keyof TurnoFormValues, { message: issue.message })
         }
       })
+      return
+    }
+
+    const medico = selectableMedicos.find((item) => item.id === parsed.data.medico_id)
+
+    if (medicoDoesNotWorkOnDate(medico, parsed.data.fecha)) {
+      setError('fecha', { message: 'El médico no atiende ese día.' })
       return
     }
 
@@ -827,6 +851,8 @@ export function TurnoFormDialog({
               <FormField error={errors.fecha?.message} label="Fecha *">
                 <input type="hidden" {...register('fecha')} />
                 <DateInputDisplay
+                  disabledDateMessage="El médico no atiende ese día."
+                  isDateDisabled={(dateKey) => medicoDoesNotWorkOnDate(selectedMedico, dateKey)}
                   onChange={(value) => setValue('fecha', value)}
                   required
                   value={selectedFecha}
@@ -835,22 +861,26 @@ export function TurnoFormDialog({
 
               <FormField error={errors.hora?.message} label="Hora *">
                 <input type="hidden" {...register('hora')} />
-                <input
-                  className="form-input"
-                  inputMode="numeric"
-                  list="horarios-turno-sugeridos"
-                  maxLength={5}
-                  onChange={(event) => updateHora(event.target.value)}
-                  placeholder="HH:mm"
+                <TimeSlotPicker
+                  description={
+                    selectedMedico && selectedFecha
+                      ? `${selectedMedico.nombre} · ${formatDateDisplay(selectedFecha)}`
+                      : 'Seleccioná médico y fecha para ver disponibilidad.'
+                  }
+                  emptyMessage={
+                    selectedMedicoId && selectedFecha
+                      ? 'No quedan horarios disponibles para ese médico y fecha.'
+                      : 'Seleccioná primero médico y fecha.'
+                  }
+                  isLoading={Boolean(
+                    selectedMedicoId && selectedFecha && turnosDelMedicoQuery.isLoading,
+                  )}
+                  onChange={updateHora}
+                  timeOptions={selectedMedicoId && selectedFecha ? horariosSugeridos : []}
                   value={selectedHora ?? ''}
                 />
-                <datalist id="horarios-turno-sugeridos">
-                  {availableTimeOptions.map((time) => (
-                    <option key={time} value={time} />
-                  ))}
-                </datalist>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Sugerencias cada {slotDuracion} minutos.
+                  Formato 24 horas. Slots cada {slotDuracion} minutos.
                 </p>
               </FormField>
 
