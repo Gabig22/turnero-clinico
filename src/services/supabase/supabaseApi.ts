@@ -255,13 +255,13 @@ function requireText(value: string | undefined, message: string) {
 
 function assertDateKey(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    throw new Error('SeleccionÃ¡ una fecha vÃ¡lida.')
+    throw new Error('Seleccioná una fecha válida.')
   }
 }
 
 function assertTimeValue(value: string) {
   if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) {
-    throw new Error('SeleccionÃ¡ una hora vÃ¡lida.')
+    throw new Error('Seleccioná una hora válida.')
   }
 }
 
@@ -399,7 +399,7 @@ function sortTurnos(turnos: TurnoDetallado[]) {
 
 function throwReadOnly(methodName: string): never {
   throw new Error(
-    `Supabase estÃ¡ conectado en modo solo lectura para esta fase (${methodName}). SeguÃ­ usando modo mock para crear, editar o cambiar estados hasta implementar S5/S6.`,
+    `Supabase está conectado en modo solo lectura para esta fase (${methodName}). Seguí usando modo mock para crear, editar o cambiar estados hasta implementar S5/S6.`,
   )
 }
 
@@ -448,7 +448,7 @@ async function getCurrentUserIdForAction(actionLabel: string) {
   const { data, error } = await supabase.auth.getUser()
 
   if (error || !data.user?.id) {
-    throw new Error(`NecesitÃ¡s iniciar sesiÃ³n para ${actionLabel}.`)
+    throw new Error(`Necesitás iniciar sesión para ${actionLabel}.`)
   }
 
   return data.user.id
@@ -459,7 +459,7 @@ async function ensureCurrentUserForWrite(actionLabel: string) {
   const { data, error } = await supabase.auth.getUser()
 
   if (error || !data.user?.id) {
-    throw new Error(`NecesitÃ¡s iniciar sesiÃ³n para ${actionLabel}.`)
+    throw new Error(`Necesitás iniciar sesión para ${actionLabel}.`)
   }
 }
 
@@ -1013,7 +1013,7 @@ export const supabaseApi: SupabaseApi = {
   },
 
   createMedico: async (input) => {
-    await ensureCurrentUserForWrite('crear mÃ©dicos')
+    await ensureCurrentUserForWrite('crear médicos')
 
     const supabase = getSupabaseClient()
     const { data, error } = await supabase
@@ -1033,11 +1033,11 @@ export const supabaseApi: SupabaseApi = {
       .single()
 
     if (error?.code === '42501') {
-      throw new Error('No tenÃ©s permisos para crear mÃ©dicos con este usuario.')
+      throw new Error('No tenés permisos para crear médicos con este usuario.')
     }
 
     handleSupabaseWriteError('createMedico', error, {
-      duplicate: 'Ya existe un mÃ©dico con esos datos.',
+      duplicate: 'Ya existe un médico con esos datos.',
     })
 
     return mapMedico(data as MedicoRow)
@@ -1261,8 +1261,8 @@ export const supabaseApi: SupabaseApi = {
   createTurno: async (input) => {
     const supabase = getSupabaseClient()
     const userId = await getCurrentUserIdForAction('crear turnos')
-    const medicoId = requireText(input.medico_id, 'SeleccionÃ¡ un mÃ©dico.')
-    const pacienteId = requireText(input.paciente_id, 'SeleccionÃ¡ un paciente.')
+    const medicoId = requireText(input.medico_id, 'Seleccioná un médico.')
+    const pacienteId = requireText(input.paciente_id, 'Seleccioná un paciente.')
     const fecha = requireText(input.fecha, 'La fecha es obligatoria.')
     const hora = requireText(input.hora, 'La hora es obligatoria.').slice(0, 5)
     const obraSocial = requireText(input.obra_social, 'La obra social es obligatoria.')
@@ -1283,13 +1283,13 @@ export const supabaseApi: SupabaseApi = {
     handleSupabaseError('createTurno.medico', medicoError)
 
     if (!medicoData) {
-      throw new Error('SeleccionÃ¡ un mÃ©dico vÃ¡lido.')
+      throw new Error('Seleccioná un médico válido.')
     }
 
     const medico = mapMedico(medicoData as MedicoRow)
 
     if (!medico.activo) {
-      throw new Error('No se puede crear un turno a un mÃ©dico inactivo.')
+      throw new Error('No se puede crear un turno a un médico inactivo.')
     }
 
     const { data: pacienteData, error: pacienteError } = await supabase
@@ -1301,7 +1301,7 @@ export const supabaseApi: SupabaseApi = {
     handleSupabaseError('createTurno.paciente', pacienteError)
 
     if (!pacienteData) {
-      throw new Error('SeleccionÃ¡ un paciente vÃ¡lido.')
+      throw new Error('Seleccioná un paciente válido.')
     }
 
     const paciente = mapPaciente(pacienteData as PacienteRow)
@@ -1327,7 +1327,7 @@ export const supabaseApi: SupabaseApi = {
     })
 
     if (hasConflict) {
-      throw new Error('Ya existe un turno para este mÃ©dico en ese horario.')
+      throw new Error('Ya existe un turno para este médico en ese horario.')
     }
 
     const { data, error } = await supabase
@@ -1352,11 +1352,11 @@ export const supabaseApi: SupabaseApi = {
       .single()
 
     if (error?.code === '42501') {
-      throw new Error('No tenÃ©s permisos para crear turnos con este usuario.')
+      throw new Error('No tenés permisos para crear turnos con este usuario.')
     }
 
     if (error?.code === '23503') {
-      throw new Error('SeleccionÃ¡ un mÃ©dico y un paciente vÃ¡lidos.')
+      throw new Error('Seleccioná un médico y un paciente válidos.')
     }
 
     handleSupabaseWriteError('createTurno', error, {

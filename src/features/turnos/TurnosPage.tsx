@@ -327,23 +327,22 @@ export function TurnosPage() {
             <EmptyState title="Cargando turnos" />
           ) : turnosQuery.data?.length ? (
             <div className="overflow-x-auto rounded-lg border border-border">
-              <table className="w-full min-w-[1040px] border-collapse bg-card text-sm">
+              <table className="w-full min-w-[920px] border-collapse bg-card text-sm">
                 <thead className="bg-muted/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
-                    <th className="w-[11%] px-4 py-3 font-semibold">Fecha</th>
+                    <th className="w-[12%] px-4 py-3 font-semibold">Fecha</th>
                     <th className="w-[8%] px-4 py-3 text-center font-semibold">Hora</th>
-                    <th className="w-[24%] px-4 py-3 font-semibold">Paciente</th>
-                    <th className="w-[22%] px-4 py-3 font-semibold">Médico</th>
-                    <th className="px-4 py-3 font-semibold">Obra social</th>
+                    <th className="w-[33%] px-4 py-3 font-semibold">Paciente</th>
+                    <th className="w-[23%] px-4 py-3 font-semibold">Médico</th>
                     <th className="whitespace-nowrap px-4 py-3 font-semibold">Estado</th>
-                    <th className="w-[192px] whitespace-nowrap px-2 py-3 text-center font-semibold">Acciones</th>
+                    <th className="w-[152px] whitespace-nowrap px-2 py-3 text-center font-semibold">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border align-middle">
                   {turnosQuery.data.map((turno) => (
-                    <tr className="hover:bg-accent/50" key={turno.id}>
+                    <tr className="hover:bg-primary-soft/35" key={turno.id}>
                       <td className="whitespace-nowrap px-4 py-2.5">
-                        <p className="font-semibold text-foreground">
+                        <p className="text-sm font-semibold text-foreground">
                           {formatDateDisplay(turno.fecha)}
                         </p>
                       </td>
@@ -356,9 +355,14 @@ export function TurnosPage() {
                             ? `${turno.paciente.apellido}, ${turno.paciente.nombre}`
                             : 'Paciente sin datos'}
                         </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          DNI {turno.paciente?.dni ?? '-'}
-                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                          <span>DNI {turno.paciente?.dni ?? '-'}</span>
+                          {turno.obra_social ? (
+                            <span className="rounded-full border border-border bg-muted/45 px-2 py-0.5 font-medium">
+                              {turno.obra_social}
+                            </span>
+                          ) : null}
+                        </div>
                       </td>
                       <td className="px-4 py-2.5">
                         <p className="max-w-[260px] whitespace-normal text-sm font-medium leading-5 text-foreground">
@@ -369,11 +373,6 @@ export function TurnosPage() {
                             turno.consultorio_cache ?? turno.medico?.consultorio,
                           )}
                         </p>
-                      </td>
-                      <td className="px-4 py-2.5 text-sm text-muted-foreground">
-                        <span className="inline-flex max-w-[170px] whitespace-normal leading-5">
-                          {turno.obra_social}
-                        </span>
                       </td>
                       <td className="whitespace-nowrap px-4 py-2.5">
                         <div className="flex flex-col items-start gap-1.5">
@@ -1009,7 +1008,7 @@ export function TurnoActions({
   }
 
   return (
-    <div className="flex min-w-[176px] justify-center gap-1">
+    <div className="flex min-w-[136px] justify-center gap-1">
       {isExpiredOpen ? (
         <>
           <ActionIconButton
@@ -1028,14 +1027,6 @@ export function TurnoActions({
           >
             <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
           </ActionIconButton>
-          <ActionIconButton
-            disabled={isReprogramming}
-            label="Reprogramar"
-            onClick={onReprogram}
-            variant="outline"
-          >
-            <CalendarClock aria-hidden="true" className="h-4 w-4" />
-          </ActionIconButton>
         </>
       ) : (
         <>
@@ -1047,17 +1038,6 @@ export function TurnoActions({
               variant="outline"
             >
               <PhoneCall aria-hidden="true" className="h-4 w-4" />
-            </ActionIconButton>
-          ) : null}
-
-          {canPostpone ? (
-            <ActionIconButton
-              disabled={isPostponing}
-              label="Posponer"
-              onClick={onPostpone}
-              variant="outline"
-            >
-              <Clock3 aria-hidden="true" className="h-4 w-4" />
             </ActionIconButton>
           ) : null}
 

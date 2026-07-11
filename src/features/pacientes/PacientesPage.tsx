@@ -17,6 +17,7 @@ import {
 } from '@/hooks/usePacientes'
 import { useAppSettings } from '@/hooks/useSettings'
 import { DEFAULT_APP_SETTINGS } from '@/lib/storage/settingsStorage'
+import { cn } from '@/lib/utils/cn'
 import { pacienteSchema, type PacienteFormValues } from '@/lib/validators/schemas'
 import type { Paciente } from '@/types'
 
@@ -127,7 +128,9 @@ export function PacientesPage() {
                     <th className="px-4 py-3 font-semibold">Obra social</th>
                     <th className="w-[26%] px-4 py-3 font-semibold">Contacto</th>
                     <th className="whitespace-nowrap px-4 py-3 font-semibold">Estado</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right font-semibold">Acciones</th>
+                    <th className="w-[96px] whitespace-nowrap px-3 py-3 text-center font-semibold">
+                      Acciones
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border align-middle">
@@ -156,23 +159,36 @@ export function PacientesPage() {
                           {paciente.activo ? 'Activo' : 'Inactivo'}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button onClick={() => openEditForm(paciente)} size="sm" variant="outline">
+                      <td className="px-3 py-3">
+                        <div className="flex justify-center gap-1.5">
+                          <Button
+                            aria-label={`Editar paciente ${paciente.apellido}, ${paciente.nombre}`}
+                            className="h-8 w-8 p-0 hover:border-primary/30"
+                            onClick={() => openEditForm(paciente)}
+                            size="sm"
+                            title="Editar paciente"
+                            variant="outline"
+                          >
                             <Pencil aria-hidden="true" className="h-4 w-4" />
-                            Editar
                           </Button>
                           <Button
+                            aria-label={`${paciente.activo ? 'Desactivar paciente' : 'Activar paciente'} ${paciente.apellido}, ${paciente.nombre}`}
+                            className={cn(
+                              'h-8 w-8 p-0',
+                              paciente.activo
+                                ? 'hover:border-destructive/30 hover:text-destructive'
+                                : 'hover:border-success/30 hover:text-success',
+                            )}
                             onClick={() => togglePacienteStatus(paciente)}
                             size="sm"
-                            variant="ghost"
+                            title={paciente.activo ? 'Desactivar paciente' : 'Activar paciente'}
+                            variant="outline"
                           >
                             {paciente.activo ? (
                               <UserRoundX aria-hidden="true" className="h-4 w-4" />
                             ) : (
                               <UserRoundCheck aria-hidden="true" className="h-4 w-4" />
                             )}
-                            {paciente.activo ? 'Desactivar' : 'Activar'}
                           </Button>
                         </div>
                       </td>
