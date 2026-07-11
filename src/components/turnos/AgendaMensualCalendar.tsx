@@ -12,6 +12,7 @@ import type { TurnoDetallado, TurnoEstado } from '@/types'
 
 type AgendaMensualCalendarProps = {
   isLoading?: boolean
+  onDateDoubleClick?: (date: string) => void
   onSelectDate: (date: string) => void
   onSelectTurno: (turno: TurnoDetallado) => void
   selectedDate: string
@@ -30,6 +31,7 @@ const eventClassByEstado: Record<TurnoEstado, string> = {
 
 export function AgendaMensualCalendar({
   isLoading = false,
+  onDateDoubleClick,
   onSelectDate,
   onSelectTurno,
   selectedDate,
@@ -59,6 +61,10 @@ export function AgendaMensualCalendar({
 
   const handleDateClick = (event: DateClickArg) => {
     onSelectDate(event.dateStr)
+
+    if (event.jsEvent.detail >= 2) {
+      onDateDoubleClick?.(event.dateStr)
+    }
   }
 
   const handleEventClick = (event: EventClickArg) => {
@@ -80,6 +86,9 @@ export function AgendaMensualCalendar({
       <FullCalendar
         buttonText={{ today: 'Hoy' }}
         dateClick={handleDateClick}
+        dayCellDidMount={(event) => {
+          event.el.title = 'Doble click para seleccionar esta fecha'
+        }}
         dayCellClassNames={(event) =>
           format(event.date, 'yyyy-MM-dd') === selectedDate
             ? ['agenda-calendar-day-selected']

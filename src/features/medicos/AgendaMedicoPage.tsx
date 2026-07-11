@@ -14,7 +14,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { addDays, format, parseISO } from 'date-fns'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { Link } from 'react-router-dom'
 
@@ -68,6 +68,7 @@ type AgendaMedicoPageProps = {
 }
 
 export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMedicoPageProps) {
+  const turnosDelDiaRef = useRef<HTMLDivElement | null>(null)
   const [selectedDate, setSelectedDate] = useState(todayKey())
   const [dateInputValue, setDateInputValue] = useState(formatDateDisplay(todayKey()))
   const [dateInputError, setDateInputError] = useState('')
@@ -124,6 +125,13 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
 
   const moveDate = (days: number) => {
     setSelectedDate(format(addDays(parseISO(selectedDate), days), 'yyyy-MM-dd'))
+  }
+
+  const selectDateAndScrollToTurnos = (date: string) => {
+    setSelectedDate(date)
+    window.requestAnimationFrame(() => {
+      turnosDelDiaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 
   useEffect(() => {
@@ -285,12 +293,13 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
         <CardHeader>
           <CardTitle>Vista mensual</CardTitle>
           <CardDescription>
-            Seleccioná un día para revisar su agenda o tocá un turno para editarlo.
+            Seleccioná o hacé doble click en un día para revisar su agenda; tocá un turno para editarlo.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <AgendaMensualCalendar
             isLoading={turnosMedicoQuery.isLoading}
+            onDateDoubleClick={selectDateAndScrollToTurnos}
             onSelectDate={setSelectedDate}
             onSelectTurno={(turno) => {
               setEditingTurno(turno)
@@ -301,6 +310,8 @@ export function AgendaMedicoPage({ medicoId = '', context = 'admin' }: AgendaMed
           />
         </CardContent>
       </Card>
+
+      <div className="scroll-mt-24" ref={turnosDelDiaRef} />
 
       <Card>
         <CardHeader>

@@ -5,7 +5,7 @@ import {
   Clock3,
   Plus,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 import { EmptyState } from '@/components/shared/EmptyState'
@@ -53,6 +53,7 @@ function todayKey() {
 }
 
 export function TurnosCalendarioPage() {
+  const turnosDelDiaRef = useRef<HTMLDivElement | null>(null)
   const [selectedDate, setSelectedDate] = useState(todayKey())
   const [medicoId, setMedicoId] = useState('')
   const [estado, setEstado] = useState<TurnoEstado | 'todos'>('todos')
@@ -113,6 +114,13 @@ export function TurnosCalendarioPage() {
   const openCreateForm = () => {
     setEditingTurno(null)
     setIsFormOpen(true)
+  }
+
+  const selectDateAndScrollToTurnos = (date: string) => {
+    setSelectedDate(date)
+    window.requestAnimationFrame(() => {
+      turnosDelDiaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
   }
 
   const openEditForm = (turno: TurnoDetallado) => {
@@ -198,12 +206,13 @@ export function TurnosCalendarioPage() {
           <CardHeader>
             <CardTitle>Vista mensual</CardTitle>
             <CardDescription>
-              Hacé click en un día para seleccionar fecha o en un turno para editarlo.
+              Hacé click o doble click en un día para seleccionar fecha; tocá un turno para editarlo.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <AgendaMensualCalendar
               isLoading={turnosQuery.isLoading}
+              onDateDoubleClick={selectDateAndScrollToTurnos}
               onSelectDate={setSelectedDate}
               onSelectTurno={openEditForm}
               selectedDate={selectedDate}
@@ -211,6 +220,8 @@ export function TurnosCalendarioPage() {
             />
           </CardContent>
         </Card>
+
+        <div className="scroll-mt-24" ref={turnosDelDiaRef} />
 
         <Card>
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
